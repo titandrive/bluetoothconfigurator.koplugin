@@ -6,6 +6,8 @@ local Device = require("device")
 local PLUGIN_VERSION = "1.0.0"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
+local _update_checked = false
+
 local BluetoothTurner = InputContainer:extend{
     name = "bluetoothconfigurator",
     is_doc_only = true,
@@ -176,6 +178,10 @@ end
 
 function BluetoothTurner:onReaderReady()
     applyBindings(self)
+    if not _update_checked and G_reader_settings:readSetting("bt_configurator_auto_check") then
+        _update_checked = true
+        UIManager:scheduleIn(3, function() self:checkForUpdates(true) end)
+    end
 end
 
 function BluetoothTurner:addToMainMenu(menu_items)
@@ -188,7 +194,12 @@ end
 
 function BluetoothTurner:showInfoPanel()
     local ButtonDialogTitle = require("ui/widget/buttondialogtitle")
+    local auto_check = G_reader_settings:readSetting("bt_configurator_auto_check") or false
     local panel
+    local function reopen()
+        UIManager:close(panel)
+        self:showInfoPanel()
+    end
     panel = ButtonDialogTitle:new{
         title = "Bluetooth Configurator  v" .. PLUGIN_VERSION,
         buttons = {
@@ -198,6 +209,15 @@ function BluetoothTurner:showInfoPanel()
                     callback = function()
                         UIManager:close(panel)
                         self:checkForUpdates()
+                    end,
+                },
+            },
+            {
+                {
+                    text = (auto_check and "✓ " or "") .. "Notify on Startup",
+                    callback = function()
+                        G_reader_settings:saveSetting("bt_configurator_auto_check", not auto_check)
+                        reopen()
                     end,
                 },
             },
@@ -224,25 +244,30 @@ function BluetoothTurner:isNewerVersion(latest, current)
     return lc > cc
 end
 
-function BluetoothTurner:checkForUpdates()
+function BluetoothTurner:checkForUpdates(silent)
     local InfoMessage = require("ui/widget/infomessage")
     local ConfirmBox = require("ui/widget/confirmbox")
 
-    local checking = InfoMessage:new{ text = "Checking for updates..." }
-    UIManager:show(checking)
-    UIManager:forceRePaint()
+    local checking
+    if not silent then
+        checking = InfoMessage:new{ text = "Checking for updates..." }
+        UIManager:show(checking)
+        UIManager:forceRePaint()
+    end
 
     local ok_https, https = pcall(require, "ssl.https")
     if not ok_https then
-        UIManager:close(checking)
-        UIManager:show(InfoMessage:new{ text = "Update check requires network support." })
+        if not silent then
+            UIManager:close(checking)
+            UIManager:show(InfoMessage:new{ text = "Update check requires network support." })
+        end
         return
     end
     local ltn12 = require("ltn12")
 
     local sink = {}
     local _, status = https.request{
-        url = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases/latest",
+        url = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases",
         method = "GET",
         headers = {
             ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION,
@@ -250,32 +275,40 @@ function BluetoothTurner:checkForUpdates()
         },
         sink = ltn12.sink.table(sink),
     }
-    UIManager:close(checking)
+    if not silent then UIManager:close(checking) end
 
     if status ~= 200 then
-        UIManager:show(InfoMessage:new{ text = "Could not reach update server. (HTTP " .. tostring(status) .. ")" })
+        if not silent then
+            UIManager:show(InfoMessage:new{ text = "Could not reach update server. (HTTP " .. tostring(status) .. ")" })
+        end
         return
     end
 
     local ok_json, json = pcall(require, "json")
     if not ok_json then
-        UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
+        if not silent then
+            UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
+        end
         return
     end
     local ok_parse, data = pcall(json.decode, table.concat(sink))
-    if not ok_parse or not data or not data.tag_name then
-        UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
+    if not ok_parse or not data or not data[1] or not data[1].tag_name then
+        if not silent then
+            UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
+        end
         return
     end
 
-    local latest_tag = data.tag_name
+    local latest_tag = data[1].tag_name
     local latest_ver = latest_tag:match("^v?(.+)$") or latest_tag
 
     if not self:isNewerVersion(latest_ver, PLUGIN_VERSION) then
-        UIManager:show(InfoMessage:new{
-            text = "You are up to date (v" .. PLUGIN_VERSION .. ").",
-            timeout = 3,
-        })
+        if not silent then
+            UIManager:show(InfoMessage:new{
+                text = "You are up to date (v" .. PLUGIN_VERSION .. ").",
+                timeout = 3,
+            })
+        end
         return
     end
 
