@@ -323,12 +323,9 @@ function BluetoothTurner:showChangelog()
     local title = (release.tag_name or "Latest") .. " Release Notes"
     local body = (release.body or "No release notes available."):gsub("\r\n", "\n"):gsub("\r", "\n")
 
-    local Device = require("device")
-    local Size = require("ui/size")
     UIManager:show(TextViewer:new{
         title = title,
         text = body,
-        width = Device.screen:getWidth() - 2 * Size.border.window,
         add_default_buttons = true,
     })
 end
