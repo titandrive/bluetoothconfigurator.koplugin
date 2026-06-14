@@ -3,7 +3,7 @@ local Event = require("ui/event")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
-local PLUGIN_VERSION = "1.1.0"
+local PLUGIN_VERSION = "1.2.0"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 
