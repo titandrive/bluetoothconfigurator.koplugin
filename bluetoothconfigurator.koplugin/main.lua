@@ -3,6 +3,9 @@ local Event = require("ui/event")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
+local PLUGIN_VERSION = "1.0.0"
+local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
+
 local BluetoothTurner = InputContainer:extend{
     name = "bluetoothconfigurator",
     is_doc_only = true,
@@ -183,6 +186,153 @@ function BluetoothTurner:addToMainMenu(menu_items)
     }
 end
 
+function BluetoothTurner:showInfoPanel()
+    local ButtonDialogTitle = require("ui/widget/buttondialogtitle")
+    local panel
+    panel = ButtonDialogTitle:new{
+        title = "Bluetooth Configurator  v" .. PLUGIN_VERSION,
+        buttons = {
+            {
+                {
+                    text = "Check for Updates",
+                    callback = function()
+                        UIManager:close(panel)
+                        self:checkForUpdates()
+                    end,
+                },
+            },
+            {
+                {
+                    text = "Close",
+                    callback = function() UIManager:close(panel) end,
+                },
+            },
+        },
+    }
+    UIManager:show(panel)
+end
+
+function BluetoothTurner:isNewerVersion(latest, current)
+    local function parse(v)
+        local a, b, c = v:match("^(%d+)%.(%d+)%.(%d+)")
+        return tonumber(a) or 0, tonumber(b) or 0, tonumber(c) or 0
+    end
+    local la, lb, lc = parse(latest)
+    local ca, cb, cc = parse(current)
+    if la ~= ca then return la > ca end
+    if lb ~= cb then return lb > cb end
+    return lc > cc
+end
+
+function BluetoothTurner:checkForUpdates()
+    local InfoMessage = require("ui/widget/infomessage")
+    local ConfirmBox = require("ui/widget/confirmbox")
+
+    local checking = InfoMessage:new{ text = "Checking for updates..." }
+    UIManager:show(checking)
+    UIManager:forceRePaint()
+
+    local ok_https, https = pcall(require, "ssl.https")
+    if not ok_https then
+        UIManager:close(checking)
+        UIManager:show(InfoMessage:new{ text = "Update check requires network support." })
+        return
+    end
+    local ltn12 = require("ltn12")
+
+    local sink = {}
+    local _, status = https.request{
+        url = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases/latest",
+        method = "GET",
+        headers = {
+            ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION,
+            ["Accept"] = "application/vnd.github+json",
+        },
+        sink = ltn12.sink.table(sink),
+    }
+    UIManager:close(checking)
+
+    if status ~= 200 then
+        UIManager:show(InfoMessage:new{ text = "Could not reach update server. (HTTP " .. tostring(status) .. ")" })
+        return
+    end
+
+    local ok_json, json = pcall(require, "json")
+    if not ok_json then
+        UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
+        return
+    end
+    local ok_parse, data = pcall(json.decode, table.concat(sink))
+    if not ok_parse or not data or not data.tag_name then
+        UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
+        return
+    end
+
+    local latest_tag = data.tag_name
+    local latest_ver = latest_tag:match("^v?(.+)$") or latest_tag
+
+    if not self:isNewerVersion(latest_ver, PLUGIN_VERSION) then
+        UIManager:show(InfoMessage:new{
+            text = "You are up to date (v" .. PLUGIN_VERSION .. ").",
+            timeout = 3,
+        })
+        return
+    end
+
+    UIManager:show(ConfirmBox:new{
+        text = "Version " .. latest_ver .. " is available (you have v" .. PLUGIN_VERSION .. "). Install now?",
+        ok_text = "Install",
+        cancel_text = "Not Now",
+        ok_callback = function() self:installUpdate(latest_tag) end,
+    })
+end
+
+function BluetoothTurner:installUpdate(tag)
+    local InfoMessage = require("ui/widget/infomessage")
+    local ConfirmBox = require("ui/widget/confirmbox")
+
+    local msg = InfoMessage:new{ text = "Downloading update..." }
+    UIManager:show(msg)
+    UIManager:forceRePaint()
+
+    local _, https = pcall(require, "ssl.https")
+    local ltn12 = require("ltn12")
+
+    local base = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. tag .. "/bluetoothconfigurator.koplugin/"
+    local files = { "_meta.lua", "main.lua", "input_android_patched.lua" }
+
+    for _, fname in ipairs(files) do
+        local f = io.open(self.path .. "/" .. fname, "wb")
+        if not f then
+            UIManager:close(msg)
+            UIManager:show(InfoMessage:new{ text = "Update failed: could not write " .. fname })
+            return
+        end
+        local _, fstatus = https.request{
+            url = base .. fname,
+            method = "GET",
+            headers = { ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION },
+            sink = ltn12.sink.file(f),
+        }
+        f:close()
+        if fstatus ~= 200 then
+            UIManager:close(msg)
+            UIManager:show(InfoMessage:new{ text = "Update failed: could not download " .. fname })
+            return
+        end
+    end
+
+    UIManager:close(msg)
+    UIManager:show(ConfirmBox:new{
+        text = "Update installed. Restart KOReader to apply.",
+        ok_text = "Restart Now",
+        cancel_text = "Later",
+        ok_callback = function()
+            UIManager:broadcastEvent(Event:new("RequestRestart"))
+        end,
+    })
+end
+
 function BluetoothTurner:showSettings()
     local ButtonDialogTitle = require("ui/widget/buttondialogtitle")
     local InfoMessage = require("ui/widget/infomessage")
@@ -310,6 +460,11 @@ function BluetoothTurner:showSettings()
     dialog = ButtonDialogTitle:new{
         title = "Configure Bluetooth Controls",
         title_align = "center",
+        right_icon = "appbar.settings",
+        right_icon_tap_callback = function()
+            UIManager:close(dialog)
+            self:showInfoPanel()
+        end,
         buttons = buttons,
         width = sw,
     }
