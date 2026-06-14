@@ -326,11 +326,12 @@ function BluetoothTurner:showChangelog()
     local Device = require("device")
     local Size = require("ui/size")
     local border = Size.border.window
+    local radius = Size.radius.window
     UIManager:show(TextViewer:new{
         title = title,
         text = body,
         width = Device.screen:getWidth() - 2 * border,
-        height = Device.screen:getHeight() - 2 * border,
+        height = Device.screen:getHeight() - 2 * border - 2 * radius,
         add_default_buttons = true,
     })
 end
