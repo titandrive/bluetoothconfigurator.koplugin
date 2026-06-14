@@ -219,9 +219,13 @@ end
 function BluetoothTurner:showInfoPanel()
     local ButtonDialog = require("ui/widget/buttondialog")
     local panel
+    local Device = require("device")
+    local Size = require("ui/size")
+    local screen_w = Device.screen:getWidth()
     panel = ButtonDialog:new{
         title = "Bluetooth Configurator",
         title_align = "center",
+        width = screen_w - 2 * Size.border.window,
         buttons = {
             {
                 {
@@ -318,12 +322,17 @@ function BluetoothTurner:checkForUpdates()
         return
     end
 
-    UIManager:show(ConfirmBox:new{
+    local confirm
+    confirm = ConfirmBox:new{
         text = "Version " .. latest_ver .. " is available (you have v" .. PLUGIN_VERSION .. "). Install now?",
         ok_text = "Install",
         cancel_text = "Not Now",
-        ok_callback = function() self:installUpdate(latest_tag) end,
-    })
+        ok_callback = function()
+            UIManager:close(confirm)
+            self:installUpdate(latest_tag)
+        end,
+    }
+    UIManager:show(confirm)
 end
 
 function BluetoothTurner:installUpdate(tag)
