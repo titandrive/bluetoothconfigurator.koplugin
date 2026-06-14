@@ -331,7 +331,6 @@ end
 
 function BluetoothTurner:installUpdate(tag)
     local InfoMessage = require("ui/widget/infomessage")
-    local ConfirmBox = require("ui/widget/confirmbox")
 
     local msg = InfoMessage:new{ text = "Downloading update..." }
     UIManager:show(msg)
@@ -378,13 +377,9 @@ function BluetoothTurner:installUpdate(tag)
     end
 
     UIManager:close(msg)
-    UIManager:show(ConfirmBox:new{
-        text = "Update installed. Restart KOReader to apply.",
-        ok_text = "Restart Now",
-        cancel_text = "Later",
-        ok_callback = function()
-            UIManager:askForRestart()
-        end,
+    local InfoMessage = require("ui/widget/infomessage")
+    UIManager:show(InfoMessage:new{
+        text = "Update installed. Please restart KOReader to apply.",
     })
 end
 
