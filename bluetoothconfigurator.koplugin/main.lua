@@ -196,7 +196,11 @@ function BluetoothTurner:autoCheckUpdates()
     os.execute(cmd)
     UIManager:scheduleIn(12, function()
         local f = io.open(tmpfile, "r")
-        if not f then return end
+        if not f then
+            -- curl not available; fall back to ssl.https (12s delay means startup is unaffected)
+            self:checkForUpdates(true)
+            return
+        end
         local content = f:read("*all")
         f:close()
         os.remove(tmpfile)
