@@ -410,37 +410,26 @@ function BluetoothTurner:showSettings()
     end
 
     local function showActionPicker(row_index)
-        -- Build category → actions map preserving order
-        local categories = {}
-        local actions_by_category = {}
+        local picker
+        local cat_items = {}
         local current_section = nil
+        local sub_items = nil
         for _, action in ipairs(ACTIONS) do
             if action.section then
+                if sub_items then
+                    cat_items[#cat_items + 1] = {
+                        text = current_section,
+                        sub_item_table = sub_items,
+                    }
+                end
                 current_section = action.section
-                categories[#categories + 1] = current_section
-                actions_by_category[current_section] = {}
+                sub_items = {}
             elseif current_section then
-                actions_by_category[current_section][#actions_by_category[current_section] + 1] = action
-            end
-        end
-
-        local showCategoryPicker
-        local function showCategoryActions(section)
-            local action_picker
-            local action_items = {}
-            action_items[#action_items + 1] = {
-                text = "← Back",
-                callback = function()
-                    UIManager:close(action_picker)
-                    showCategoryPicker()
-                end,
-            }
-            for _, action in ipairs(actions_by_category[section]) do
                 local id = action.id
-                action_items[#action_items + 1] = {
+                sub_items[#sub_items + 1] = {
                     text = action.label,
                     callback = function()
-                        UIManager:close(action_picker)
+                        UIManager:close(picker)
                         self._bindings[row_index].action = id
                         saveBindings(self._bindings)
                         applyBindings(self)
@@ -448,40 +437,21 @@ function BluetoothTurner:showSettings()
                     end,
                 }
             end
-            action_picker = Menu:new{
-                title = section,
-                item_table = action_items,
-                width = sw,
-                height = sh,
-                close_callback = function() UIManager:close(action_picker) end,
-            }
-            UIManager:show(action_picker)
         end
-
-        showCategoryPicker = function()
-            local cat_picker
-            local cat_items = {}
-            for _, section in ipairs(categories) do
-                local sec = section
-                cat_items[#cat_items + 1] = {
-                    text = sec,
-                    callback = function()
-                        UIManager:close(cat_picker)
-                        showCategoryActions(sec)
-                    end,
-                }
-            end
-            cat_picker = Menu:new{
-                title = "Select Category",
-                item_table = cat_items,
-                width = sw,
-                height = sh,
-                close_callback = function() UIManager:close(cat_picker) end,
+        if sub_items then
+            cat_items[#cat_items + 1] = {
+                text = current_section,
+                sub_item_table = sub_items,
             }
-            UIManager:show(cat_picker)
         end
-
-        showCategoryPicker()
+        picker = Menu:new{
+            title = "Select Action",
+            item_table = cat_items,
+            width = sw,
+            height = sh,
+            close_callback = function() UIManager:close(picker) end,
+        }
+        UIManager:show(picker)
     end
 
     local function startCapture(row_index)
