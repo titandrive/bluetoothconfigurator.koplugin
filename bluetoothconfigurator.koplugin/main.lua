@@ -3,7 +3,7 @@ local Event = require("ui/event")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
-local PLUGIN_VERSION = "1.0.0"
+local PLUGIN_VERSION = "1.1.0"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 local _update_checked = false
@@ -337,8 +337,18 @@ function BluetoothTurner:installUpdate(tag)
     UIManager:show(msg)
     UIManager:forceRePaint()
 
-    local _, https = pcall(require, "ssl.https")
-    local ltn12 = require("ltn12")
+    local ok_https, https = pcall(require, "ssl.https")
+    if not ok_https then
+        UIManager:close(msg)
+        UIManager:show(InfoMessage:new{ text = "Update failed: network support unavailable." })
+        return
+    end
+    local ok_ltn12, ltn12 = pcall(require, "ltn12")
+    if not ok_ltn12 then
+        UIManager:close(msg)
+        UIManager:show(InfoMessage:new{ text = "Update failed: ltn12 unavailable." })
+        return
+    end
 
     local base = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. tag .. "/bluetoothconfigurator.koplugin/"
     local files = { "_meta.lua", "main.lua", "input_android_patched.lua" }
@@ -350,14 +360,17 @@ function BluetoothTurner:installUpdate(tag)
             UIManager:show(InfoMessage:new{ text = "Update failed: could not write " .. fname })
             return
         end
-        local _, fstatus = https.request{
-            url = base .. fname,
-            method = "GET",
-            headers = { ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION },
-            sink = ltn12.sink.file(f),
-        }
+        local ok_req, fstatus = pcall(function()
+            local _, s = https.request{
+                url = base .. fname,
+                method = "GET",
+                headers = { ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION },
+                sink = ltn12.sink.file(f),
+            }
+            return s
+        end)
         f:close()
-        if fstatus ~= 200 then
+        if not ok_req or fstatus ~= 200 then
             UIManager:close(msg)
             UIManager:show(InfoMessage:new{ text = "Update failed: could not download " .. fname })
             return
