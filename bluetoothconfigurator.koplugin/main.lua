@@ -180,8 +180,41 @@ function BluetoothTurner:onReaderReady()
     applyBindings(self)
     if not _update_checked and G_reader_settings:readSetting("bt_configurator_auto_check") then
         _update_checked = true
-        UIManager:scheduleIn(3, function() self:checkForUpdates(true) end)
+        self:autoCheckUpdates()
     end
+end
+
+function BluetoothTurner:autoCheckUpdates()
+    local tmpfile = self.path .. "/update_check.json"
+    os.remove(tmpfile)
+    local url = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases"
+    local cmd = 'curl -sf --max-time 10 '
+        .. '-H "User-Agent: KOReader-BluetoothConfigurator/' .. PLUGIN_VERSION .. '" '
+        .. '-H "Accept: application/vnd.github+json" '
+        .. '-o "' .. tmpfile .. '" '
+        .. '"' .. url .. '" &'
+    os.execute(cmd)
+    UIManager:scheduleIn(12, function()
+        local f = io.open(tmpfile, "r")
+        if not f then return end
+        local content = f:read("*all")
+        f:close()
+        os.remove(tmpfile)
+        local ok_json, json = pcall(require, "json")
+        if not ok_json then return end
+        local ok_parse, data = pcall(json.decode, content)
+        if not ok_parse or not data or not data[1] or not data[1].tag_name then return end
+        local latest_tag = data[1].tag_name
+        local latest_ver = latest_tag:match("^v?(.+)$") or latest_tag
+        if not self:isNewerVersion(latest_ver, PLUGIN_VERSION) then return end
+        local ConfirmBox = require("ui/widget/confirmbox")
+        UIManager:show(ConfirmBox:new{
+            text = "Version " .. latest_ver .. " is available (you have v" .. PLUGIN_VERSION .. "). Install now?",
+            ok_text = "Install",
+            cancel_text = "Not Now",
+            ok_callback = function() self:installUpdate(latest_tag) end,
+        })
+    end)
 end
 
 function BluetoothTurner:addToMainMenu(menu_items)
