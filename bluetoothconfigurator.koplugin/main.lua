@@ -414,14 +414,21 @@ function BluetoothTurner:showSettings()
         local cat_items = {}
         local current_section = nil
         local sub_items = nil
+        local function finalizeSection()
+            if current_section and sub_items then
+                table.insert(sub_items, 1, {
+                    text = "← Back",
+                    callback = function() picker:onClose() end,
+                })
+                cat_items[#cat_items + 1] = {
+                    text = current_section,
+                    sub_item_table = sub_items,
+                }
+            end
+        end
         for _, action in ipairs(ACTIONS) do
             if action.section then
-                if sub_items then
-                    cat_items[#cat_items + 1] = {
-                        text = current_section,
-                        sub_item_table = sub_items,
-                    }
-                end
+                finalizeSection()
                 current_section = action.section
                 sub_items = {}
             elseif current_section then
@@ -438,12 +445,7 @@ function BluetoothTurner:showSettings()
                 }
             end
         end
-        if sub_items then
-            cat_items[#cat_items + 1] = {
-                text = current_section,
-                sub_item_table = sub_items,
-            }
-        end
+        finalizeSection()
         picker = Menu:new{
             title = "Select Action",
             item_table = cat_items,
