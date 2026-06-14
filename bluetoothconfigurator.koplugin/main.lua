@@ -369,7 +369,7 @@ function BluetoothTurner:installUpdate(tag)
             }
             return s
         end)
-        f:close()
+        if not ok_req then pcall(function() f:close() end) end
         if not ok_req or fstatus ~= 200 then
             UIManager:close(msg)
             UIManager:show(InfoMessage:new{ text = "Update failed: could not download " .. fname })
