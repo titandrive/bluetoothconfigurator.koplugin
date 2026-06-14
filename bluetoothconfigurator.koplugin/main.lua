@@ -243,6 +243,14 @@ function BluetoothTurner:showInfoPanel()
             },
             {
                 {
+                    text = "Changelog",
+                    callback = function()
+                        self:showChangelog()
+                    end,
+                },
+            },
+            {
+                {
                     text = "Back",
                     callback = function()
                         UIManager:close(panel)
@@ -265,6 +273,60 @@ function BluetoothTurner:isNewerVersion(latest, current)
     if la ~= ca then return la > ca end
     if lb ~= cb then return lb > cb end
     return lc > cc
+end
+
+function BluetoothTurner:showChangelog()
+    local InfoMessage = require("ui/widget/infomessage")
+    local TextViewer = require("ui/widget/textviewer")
+
+    local fetching = InfoMessage:new{ text = "Fetching changelog..." }
+    UIManager:show(fetching)
+    UIManager:forceRePaint()
+
+    local ok_https, https = pcall(require, "ssl.https")
+    if not ok_https then
+        UIManager:close(fetching)
+        UIManager:show(InfoMessage:new{ text = "Changelog requires network support." })
+        return
+    end
+    local ltn12 = require("ltn12")
+
+    local sink = {}
+    local _, status = https.request{
+        url = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases",
+        method = "GET",
+        headers = {
+            ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION,
+            ["Accept"] = "application/vnd.github+json",
+        },
+        sink = ltn12.sink.table(sink),
+    }
+    UIManager:close(fetching)
+
+    if status ~= 200 then
+        UIManager:show(InfoMessage:new{ text = "Could not fetch changelog. (HTTP " .. tostring(status) .. ")" })
+        return
+    end
+
+    local ok_json, json = pcall(require, "json")
+    if not ok_json then
+        UIManager:show(InfoMessage:new{ text = "Could not parse changelog response." })
+        return
+    end
+    local ok_parse, data = pcall(json.decode, table.concat(sink))
+    if not ok_parse or not data or not data[1] then
+        UIManager:show(InfoMessage:new{ text = "Could not parse changelog response." })
+        return
+    end
+
+    local release = data[1]
+    local title = (release.tag_name or "Latest") .. " Release Notes"
+    local body = release.body or "No release notes available."
+
+    UIManager:show(TextViewer:new{
+        title = title,
+        text = body,
+    })
 end
 
 function BluetoothTurner:checkForUpdates()
