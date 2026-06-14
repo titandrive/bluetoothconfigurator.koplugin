@@ -399,6 +399,10 @@ function BluetoothTurner:showSettings()
         local function showCategoryActions(section)
             local action_items = {}
             local action_picker
+            action_items[#action_items + 1] = {
+                text = "← Back",
+                callback = function() UIManager:close(action_picker) end,
+            }
             for _, action in ipairs(actions_by_category[section]) do
                 local id = action.id
                 action_items[#action_items + 1] = {
