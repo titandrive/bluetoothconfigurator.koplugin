@@ -223,7 +223,6 @@ function BluetoothTurner:showInfoPanel()
                 {
                     text = "Check for Updates",
                     callback = function()
-                        UIManager:close(panel)
                         self:checkForUpdates()
                     end,
                 },
@@ -231,7 +230,10 @@ function BluetoothTurner:showInfoPanel()
             {
                 {
                     text = "Close",
-                    callback = function() UIManager:close(panel) end,
+                    callback = function()
+                        UIManager:close(panel)
+                        self:showSettings()
+                    end,
                 },
             },
         },
