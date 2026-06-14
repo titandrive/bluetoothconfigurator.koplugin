@@ -519,7 +519,7 @@ function BluetoothTurner:showSettings()
                 end,
             },
             {
-                text = "×",
+                text = "\xEF\x87\xB8",
                 width = col_del,
                 callback = function()
                     table.remove(self._bindings, idx)
