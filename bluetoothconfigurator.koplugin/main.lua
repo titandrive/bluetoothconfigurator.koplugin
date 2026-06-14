@@ -472,8 +472,8 @@ function BluetoothTurner:showSettings()
     local Menu = require("ui/widget/menu")
 
     local screen_w = Device.screen:getWidth()
-    local sh = Device.screen:getHeight()
-    local sw = screen_w - 2 * require("ui/size").border.window
+    local sh = Device.screen:getHeight() - 2 * Size.border.window
+    local sw = screen_w - 2 * Size.border.window
     local col_key = math.floor(sw * 0.44)
     local col_act = math.floor(sw * 0.44)
     local col_del = sw - col_key - col_act
