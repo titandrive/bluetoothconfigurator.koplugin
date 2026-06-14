@@ -383,7 +383,7 @@ function BluetoothTurner:installUpdate(tag)
         ok_text = "Restart Now",
         cancel_text = "Later",
         ok_callback = function()
-            UIManager:broadcastEvent(Event:new("RequestRestart"))
+            UIManager:askForRestart()
         end,
     })
 end
