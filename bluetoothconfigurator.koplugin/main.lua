@@ -193,31 +193,38 @@ function BluetoothTurner:addToMainMenu(menu_items)
 end
 
 function BluetoothTurner:showInfoPanel()
-    local ButtonDialogTitle = require("ui/widget/buttondialogtitle")
+    local ButtonDialog = require("ui/widget/buttondialog")
     local auto_check = G_reader_settings:readSetting("bt_configurator_auto_check") or false
     local panel
     local function reopen()
         UIManager:close(panel)
         self:showInfoPanel()
     end
-    panel = ButtonDialogTitle:new{
-        title = "Bluetooth Configurator  v" .. PLUGIN_VERSION,
+    panel = ButtonDialog:new{
+        title = "Bluetooth Configurator",
+        title_align = "center",
         buttons = {
+            {
+                {
+                    text = "Version: " .. PLUGIN_VERSION,
+                    callback = function() end,
+                },
+            },
+            {
+                {
+                    text = (auto_check and "●" or "○") .. " Notify on Startup",
+                    callback = function()
+                        G_reader_settings:saveSetting("bt_configurator_auto_check", not auto_check)
+                        reopen()
+                    end,
+                },
+            },
             {
                 {
                     text = "Check for Updates",
                     callback = function()
                         UIManager:close(panel)
                         self:checkForUpdates()
-                    end,
-                },
-            },
-            {
-                {
-                    text = (auto_check and "✓ " or "") .. "Notify on Startup",
-                    callback = function()
-                        G_reader_settings:saveSetting("bt_configurator_auto_check", not auto_check)
-                        reopen()
                     end,
                 },
             },
@@ -367,7 +374,18 @@ function BluetoothTurner:installUpdate(tag)
 end
 
 function BluetoothTurner:showSettings()
-    local ButtonDialogTitle = require("ui/widget/buttondialogtitle")
+    local TitleBar = require("ui/widget/titlebar")
+    local ButtonTable = require("ui/widget/buttontable")
+    local CenterContainer = require("ui/widget/container/centercontainer")
+    local FrameContainer = require("ui/widget/container/framecontainer")
+    local MovableContainer = require("ui/widget/container/movablecontainer")
+    local ScrollableContainer = require("ui/widget/container/scrollablecontainer")
+    local VerticalGroup = require("ui/widget/verticalgroup")
+    local InputContainer = require("ui/widget/container/inputcontainer")
+    local GestureRange = require("ui/gesturerange")
+    local Blitbuffer = require("ffi/blitbuffer")
+    local Size = require("ui/size")
+    local Geom = require("ui/geometry")
     local InfoMessage = require("ui/widget/infomessage")
     local Menu = require("ui/widget/menu")
 
@@ -490,17 +508,75 @@ function BluetoothTurner:showSettings()
         },
     }
 
-    dialog = ButtonDialogTitle:new{
+    local title_bar = TitleBar:new{
+        width = sw,
+        align = "center",
+        with_bottom_line = true,
         title = "Configure Bluetooth Controls",
-        title_align = "center",
         right_icon = "appbar.settings",
         right_icon_tap_callback = function()
             UIManager:close(dialog)
             self:showInfoPanel()
         end,
-        buttons = buttons,
-        width = sw,
     }
+
+    local button_table = ButtonTable:new{
+        width = sw - 2 * Size.padding.button,
+        buttons = buttons,
+        zero_sep = false,
+    }
+
+    local title_h = title_bar:getSize().h
+    local btn_h = button_table:getSize().h
+    local content
+    if btn_h > sh - title_h then
+        content = ScrollableContainer:new{
+            dimen = Geom:new{ w = sw, h = sh - title_h },
+            button_table,
+        }
+    else
+        content = button_table
+    end
+
+    local frame = FrameContainer:new{
+        radius = Size.radius.window,
+        padding = 0,
+        padding_top = 0,
+        padding_bottom = 0,
+        margin = 0,
+        bordersize = Size.border.window,
+        background = Blitbuffer.COLOR_WHITE,
+        VerticalGroup:new{
+            align = "left",
+            title_bar,
+            content,
+        },
+    }
+
+    local movable = MovableContainer:new{ frame }
+
+    dialog = InputContainer:new{
+        ges_events = {
+            TapClose = {
+                GestureRange:new{
+                    ges = "tap",
+                    range = Geom:new{ x = 0, y = 0, w = sw, h = sh },
+                }
+            }
+        },
+        CenterContainer:new{
+            dimen = Geom:new{ x = 0, y = 0, w = sw, h = sh },
+            movable,
+        }
+    }
+
+    function dialog:onTapClose(_, ges)
+        if ges.pos:notIntersectWith(movable.dimen) then
+            UIManager:close(self)
+        end
+        return true
+    end
+
     UIManager:show(dialog)
 end
 
