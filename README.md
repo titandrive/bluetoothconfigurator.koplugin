@@ -36,7 +36,7 @@ Open a book and access **Plugins → Configure Bluetooth Controls** to set up yo
 - Tap **"tap to set..."**. The plugin will begin listening for your controller.
 - Press the desired button you want to pair. The plugin will capture its keycode. 
 - Select the action you want it to trigger
-- Use the "x" icon to remove a binding
+- Use the 🗑 icon to remove a binding
 
 Bindings are saved automatically and persist across sessions.
 
@@ -44,12 +44,16 @@ Bindings are saved automatically and persist across sessions.
 
 Actions are grouped into the following categories:
 
-- **Navigation** — page turns, chapters, go to page, skim, back, location history
-- **Bookmarks** — toggle, view, search, previous/next bookmark
-- **Display** — night mode, font size, frontlight, status bar, screen refresh
-- **Reader** — table of contents, menus, search, book info, translate, screenshot
-- **Library** — file browser, history, favorites, collections, dictionary/Wikipedia lookup
-- **Device** — Wi-Fi toggle, sleep
+- **Navigation** — Next/Previous Page, Next/Previous Chapter, First/Last Page, Go to Page, Skim Document, Random Page, Back, Previous/Next Location, Add/Clear Location History, Pin Page, Go to Pinned Page
+- **Bookmarks** — Toggle Bookmark, Bookmarks, Bookmark Browser, Bookmark Search, Previous/Next/First/Last/Latest Bookmark
+- **Display** — Toggle Night Mode, Increase/Decrease Font Size, Frontlight Dialog, Toggle Frontlight, Increase/Decrease Frontlight, Toggle Status Bar, Toggle Chapter Progress Bar, Full Screen Refresh
+- **Reader** — Table of Contents, Book Map, Page Browser, Show Menu, Menu Search, Show Bottom Menu, Fulltext Search, Last Fulltext Search Results, Book Status, Book Information, Book Description, Book Cover, Translate Page, Toggle Style Tweaks, Cycle Highlight Action/Style, Toggle Page Turn Direction, Save Book Metadata, Export Annotations, Screenshot
+- **Library** — File Browser, History, History Search, Favorites, Collections, Collections Search, Open Previous Document, Open Next/Previous File in Folder, Notebook File, Dictionary Lookup, Wikipedia Lookup
+- **Device** — Toggle Wi-Fi, Toggle Orientation, Invert Rotation, Rotate 90° CW/CCW, Sleep
+
+## Updates
+
+Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Configure Bluetooth Controls**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available you will be prompted to install it. KOReader will need to be restarted for the update to take effect.
 
 ## Notes
 
