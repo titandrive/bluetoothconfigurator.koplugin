@@ -420,8 +420,7 @@ function BluetoothTurner:showSettings()
             action_picker = Menu:new{
                 title = section,
                 item_table = action_items,
-                width = sw,
-                height = sh,
+                width = math.floor(sw * 0.75),
                 close_callback = function() UIManager:close(action_picker) end,
             }
             UIManager:show(action_picker)
@@ -438,8 +437,7 @@ function BluetoothTurner:showSettings()
         cat_picker = Menu:new{
             title = "Select Category",
             item_table = cat_items,
-            width = sw,
-            height = sh,
+            width = math.floor(sw * 0.75),
             close_callback = function() UIManager:close(cat_picker) end,
         }
         UIManager:show(cat_picker)
