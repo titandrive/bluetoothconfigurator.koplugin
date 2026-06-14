@@ -418,7 +418,12 @@ function BluetoothTurner:showSettings()
             if current_section and sub_items then
                 table.insert(sub_items, 1, {
                     text = "← Back",
-                    callback = function() picker:onClose() end,
+                    callback = function()
+                        if #picker.item_table_stack > 0 then
+                            local parent = table.remove(picker.item_table_stack)
+                            picker:switchItemTable(parent.title, parent)
+                        end
+                    end,
                 })
                 cat_items[#cat_items + 1] = {
                     text = current_section,
@@ -453,6 +458,10 @@ function BluetoothTurner:showSettings()
             height = sh,
             close_callback = function() UIManager:close(picker) end,
         }
+        picker.onClose = function(self_menu)
+            self_menu:onCloseAllMenus()
+            return true
+        end
         UIManager:show(picker)
     end
 
