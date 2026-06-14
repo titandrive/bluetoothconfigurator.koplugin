@@ -424,15 +424,15 @@ function BluetoothTurner:showSettings()
             end
         end
 
-        local cat_picker
+        local showCategoryPicker
         local function showCategoryActions(section)
-            local action_items = {}
             local action_picker
+            local action_items = {}
             action_items[#action_items + 1] = {
                 text = "← Back",
                 callback = function()
                     UIManager:close(action_picker)
-                    UIManager:show(cat_picker)
+                    showCategoryPicker()
                 end,
             }
             for _, action in ipairs(actions_by_category[section]) do
@@ -455,26 +455,33 @@ function BluetoothTurner:showSettings()
                 height = sh,
                 close_callback = function() UIManager:close(action_picker) end,
             }
-            UIManager:close(cat_picker)
             UIManager:show(action_picker)
         end
 
-        local cat_items = {}
-        for _, section in ipairs(categories) do
-            local sec = section
-            cat_items[#cat_items + 1] = {
-                text = sec,
-                callback = function() showCategoryActions(sec) end,
+        showCategoryPicker = function()
+            local cat_picker
+            local cat_items = {}
+            for _, section in ipairs(categories) do
+                local sec = section
+                cat_items[#cat_items + 1] = {
+                    text = sec,
+                    callback = function()
+                        UIManager:close(cat_picker)
+                        showCategoryActions(sec)
+                    end,
+                }
+            end
+            cat_picker = Menu:new{
+                title = "Select Category",
+                item_table = cat_items,
+                width = sw,
+                height = sh,
+                close_callback = function() UIManager:close(cat_picker) end,
             }
+            UIManager:show(cat_picker)
         end
-        cat_picker = Menu:new{
-            title = "Select Category",
-            item_table = cat_items,
-            width = sw,
-            height = sh,
-            close_callback = function() UIManager:close(cat_picker) end,
-        }
-        UIManager:show(cat_picker)
+
+        showCategoryPicker()
     end
 
     local function startCapture(row_index)
