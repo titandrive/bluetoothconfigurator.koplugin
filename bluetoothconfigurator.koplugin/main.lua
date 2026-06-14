@@ -323,11 +323,19 @@ function BluetoothTurner:showChangelog()
     local title = (release.tag_name or "Latest") .. " Release Notes"
     local body = (release.body or "No release notes available."):gsub("\r\n", "\n"):gsub("\r", "\n")
 
-    UIManager:show(TextViewer:new{
+    local viewer
+    viewer = TextViewer:new{
         title = title,
         text = body,
-        add_default_buttons = true,
-    })
+        buttons_table = {
+            {
+                { text = "↑ Scroll Up",   callback = function() viewer.scroll_text_w:scrollText(-1) end },
+                { text = "↓ Scroll Down", callback = function() viewer.scroll_text_w:scrollText(1)  end },
+                { text = "Close",         callback = function() UIManager:close(viewer) end },
+            },
+        },
+    }
+    UIManager:show(viewer)
 end
 
 function BluetoothTurner:checkForUpdates()
@@ -529,6 +537,7 @@ function BluetoothTurner:showSettings()
             item_table = cat_items,
             width = sw,
             height = sh,
+            is_popout = true,
         }
         picker.onClose = function(self_menu)
             UIManager:close(picker)
