@@ -490,7 +490,7 @@ function BluetoothTurner:showSettings()
                 end,
             },
             {
-                icon = "cancel",
+                text = "×",
                 width = col_del,
                 callback = function()
                     table.remove(self._bindings, idx)
