@@ -6,7 +6,6 @@ local Device = require("device")
 local PLUGIN_VERSION = "1.1.0"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
-local _update_checked = false
 
 local BluetoothTurner = InputContainer:extend{
     name = "bluetoothconfigurator",
@@ -178,47 +177,6 @@ end
 
 function BluetoothTurner:onReaderReady()
     applyBindings(self)
-    if not _update_checked and G_reader_settings:readSetting("bt_configurator_auto_check") then
-        _update_checked = true
-        self:autoCheckUpdates()
-    end
-end
-
-function BluetoothTurner:autoCheckUpdates()
-    local tmpfile = self.path .. "/update_check.json"
-    os.remove(tmpfile)
-    local url = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases"
-    local cmd = 'curl -sf --max-time 10 '
-        .. '-H "User-Agent: KOReader-BluetoothConfigurator/' .. PLUGIN_VERSION .. '" '
-        .. '-H "Accept: application/vnd.github+json" '
-        .. '-o "' .. tmpfile .. '" '
-        .. '"' .. url .. '" &'
-    os.execute(cmd)
-    UIManager:scheduleIn(12, function()
-        local f = io.open(tmpfile, "r")
-        if not f then
-            -- curl not available; fall back to ssl.https (12s delay means startup is unaffected)
-            self:checkForUpdates(true)
-            return
-        end
-        local content = f:read("*all")
-        f:close()
-        os.remove(tmpfile)
-        local ok_json, json = pcall(require, "json")
-        if not ok_json then return end
-        local ok_parse, data = pcall(json.decode, content)
-        if not ok_parse or not data or not data[1] or not data[1].tag_name then return end
-        local latest_tag = data[1].tag_name
-        local latest_ver = latest_tag:match("^v?(.+)$") or latest_tag
-        if not self:isNewerVersion(latest_ver, PLUGIN_VERSION) then return end
-        local ConfirmBox = require("ui/widget/confirmbox")
-        UIManager:show(ConfirmBox:new{
-            text = "Version " .. latest_ver .. " is available (you have v" .. PLUGIN_VERSION .. "). Install now?",
-            ok_text = "Install",
-            cancel_text = "Not Now",
-            ok_callback = function() self:installUpdate(latest_tag) end,
-        })
-    end)
 end
 
 function BluetoothTurner:addToMainMenu(menu_items)
@@ -231,12 +189,7 @@ end
 
 function BluetoothTurner:showInfoPanel()
     local ButtonDialog = require("ui/widget/buttondialog")
-    local auto_check = G_reader_settings:readSetting("bt_configurator_auto_check") or false
     local panel
-    local function reopen()
-        UIManager:close(panel)
-        self:showInfoPanel()
-    end
     panel = ButtonDialog:new{
         title = "Bluetooth Configurator",
         title_align = "center",
@@ -245,15 +198,6 @@ function BluetoothTurner:showInfoPanel()
                 {
                     text = "Version: " .. PLUGIN_VERSION,
                     callback = function() end,
-                },
-            },
-            {
-                {
-                    text = (auto_check and "●" or "○") .. " Notify on Startup",
-                    callback = function()
-                        G_reader_settings:saveSetting("bt_configurator_auto_check", not auto_check)
-                        reopen()
-                    end,
                 },
             },
             {
@@ -290,23 +234,18 @@ function BluetoothTurner:isNewerVersion(latest, current)
     return lc > cc
 end
 
-function BluetoothTurner:checkForUpdates(silent)
+function BluetoothTurner:checkForUpdates()
     local InfoMessage = require("ui/widget/infomessage")
     local ConfirmBox = require("ui/widget/confirmbox")
 
-    local checking
-    if not silent then
-        checking = InfoMessage:new{ text = "Checking for updates..." }
-        UIManager:show(checking)
-        UIManager:forceRePaint()
-    end
+    local checking = InfoMessage:new{ text = "Checking for updates..." }
+    UIManager:show(checking)
+    UIManager:forceRePaint()
 
     local ok_https, https = pcall(require, "ssl.https")
     if not ok_https then
-        if not silent then
-            UIManager:close(checking)
-            UIManager:show(InfoMessage:new{ text = "Update check requires network support." })
-        end
+        UIManager:close(checking)
+        UIManager:show(InfoMessage:new{ text = "Update check requires network support." })
         return
     end
     local ltn12 = require("ltn12")
@@ -321,27 +260,21 @@ function BluetoothTurner:checkForUpdates(silent)
         },
         sink = ltn12.sink.table(sink),
     }
-    if not silent then UIManager:close(checking) end
+    UIManager:close(checking)
 
     if status ~= 200 then
-        if not silent then
-            UIManager:show(InfoMessage:new{ text = "Could not reach update server. (HTTP " .. tostring(status) .. ")" })
-        end
+        UIManager:show(InfoMessage:new{ text = "Could not reach update server. (HTTP " .. tostring(status) .. ")" })
         return
     end
 
     local ok_json, json = pcall(require, "json")
     if not ok_json then
-        if not silent then
-            UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
-        end
+        UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
         return
     end
     local ok_parse, data = pcall(json.decode, table.concat(sink))
     if not ok_parse or not data or not data[1] or not data[1].tag_name then
-        if not silent then
-            UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
-        end
+        UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
         return
     end
 
@@ -349,12 +282,10 @@ function BluetoothTurner:checkForUpdates(silent)
     local latest_ver = latest_tag:match("^v?(.+)$") or latest_tag
 
     if not self:isNewerVersion(latest_ver, PLUGIN_VERSION) then
-        if not silent then
-            UIManager:show(InfoMessage:new{
-                text = "You are up to date (v" .. PLUGIN_VERSION .. ").",
-                timeout = 3,
-            })
-        end
+        UIManager:show(InfoMessage:new{
+            text = "You are up to date (v" .. PLUGIN_VERSION .. ").",
+            timeout = 3,
+        })
         return
     end
 
