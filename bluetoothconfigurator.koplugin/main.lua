@@ -229,7 +229,7 @@ function BluetoothTurner:showInfoPanel()
             },
             {
                 {
-                    text = "Close",
+                    text = "Back",
                     callback = function()
                         UIManager:close(panel)
                         self:showSettings()
