@@ -381,21 +381,31 @@ function BluetoothTurner:showSettings()
     end
 
     local function showActionPicker(row_index)
-        local items = {}
-        local picker
+        -- Build category → actions map preserving order
+        local categories = {}
+        local actions_by_category = {}
+        local current_section = nil
         for _, action in ipairs(ACTIONS) do
             if action.section then
-                items[#items + 1] = {
-                    text = "── " .. action.section .. " ──",
-                    dim = true,
-                    callback = function() end,
-                }
-            else
+                current_section = action.section
+                categories[#categories + 1] = current_section
+                actions_by_category[current_section] = {}
+            elseif current_section then
+                actions_by_category[current_section][#actions_by_category[current_section] + 1] = action
+            end
+        end
+
+        local cat_picker
+        local function showCategoryActions(section)
+            local action_items = {}
+            local action_picker
+            for _, action in ipairs(actions_by_category[section]) do
                 local id = action.id
-                items[#items + 1] = {
+                action_items[#action_items + 1] = {
                     text = action.label,
                     callback = function()
-                        UIManager:close(picker)
+                        UIManager:close(action_picker)
+                        UIManager:close(cat_picker)
                         self._bindings[row_index].action = id
                         saveBindings(self._bindings)
                         applyBindings(self)
@@ -403,15 +413,32 @@ function BluetoothTurner:showSettings()
                     end,
                 }
             end
+            action_picker = Menu:new{
+                title = section,
+                item_table = action_items,
+                width = sw,
+                height = sh,
+                close_callback = function() UIManager:close(action_picker) end,
+            }
+            UIManager:show(action_picker)
         end
-        picker = Menu:new{
-            title = "Select Action",
-            item_table = items,
+
+        local cat_items = {}
+        for _, section in ipairs(categories) do
+            local sec = section
+            cat_items[#cat_items + 1] = {
+                text = sec,
+                callback = function() showCategoryActions(sec) end,
+            }
+        end
+        cat_picker = Menu:new{
+            title = "Select Category",
+            item_table = cat_items,
             width = sw,
             height = sh,
-            close_callback = function() UIManager:close(picker) end,
+            close_callback = function() UIManager:close(cat_picker) end,
         }
-        UIManager:show(picker)
+        UIManager:show(cat_picker)
     end
 
     local function startCapture(row_index)
