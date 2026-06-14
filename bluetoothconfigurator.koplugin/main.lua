@@ -430,7 +430,10 @@ function BluetoothTurner:showSettings()
             local action_picker
             action_items[#action_items + 1] = {
                 text = "← Back",
-                callback = function() UIManager:close(action_picker) end,
+                callback = function()
+                    UIManager:close(action_picker)
+                    UIManager:show(cat_picker)
+                end,
             }
             for _, action in ipairs(actions_by_category[section]) do
                 local id = action.id
@@ -438,7 +441,6 @@ function BluetoothTurner:showSettings()
                     text = action.label,
                     callback = function()
                         UIManager:close(action_picker)
-                        UIManager:close(cat_picker)
                         self._bindings[row_index].action = id
                         saveBindings(self._bindings)
                         applyBindings(self)
@@ -453,6 +455,7 @@ function BluetoothTurner:showSettings()
                 height = sh,
                 close_callback = function() UIManager:close(action_picker) end,
             }
+            UIManager:close(cat_picker)
             UIManager:show(action_picker)
         end
 
