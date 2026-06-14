@@ -456,10 +456,10 @@ function BluetoothTurner:showSettings()
             item_table = cat_items,
             width = sw,
             height = sh,
-            close_callback = function() UIManager:close(picker) end,
         }
         picker.onClose = function(self_menu)
-            self_menu:onCloseAllMenus()
+            UIManager:close(picker)
+            self:showSettings()
             return true
         end
         UIManager:show(picker)
