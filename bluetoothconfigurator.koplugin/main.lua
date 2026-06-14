@@ -278,6 +278,7 @@ end
 function BluetoothTurner:showChangelog()
     local InfoMessage = require("ui/widget/infomessage")
     local TextViewer = require("ui/widget/textviewer")
+    local Device = require("device")
 
     local fetching = InfoMessage:new{ text = "Fetching changelog..." }
     UIManager:show(fetching)
@@ -326,6 +327,8 @@ function BluetoothTurner:showChangelog()
     UIManager:show(TextViewer:new{
         title = title,
         text = body,
+        width = Device.screen:getWidth(),
+        height = Device.screen:getHeight(),
         add_default_buttons = true,
     })
 end
