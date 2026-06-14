@@ -396,8 +396,9 @@ function BluetoothTurner:showSettings()
     local InfoMessage = require("ui/widget/infomessage")
     local Menu = require("ui/widget/menu")
 
-    local sw = Device.screen:getWidth() - 20
+    local screen_w = Device.screen:getWidth()
     local sh = Device.screen:getHeight()
+    local sw = screen_w - 2 * require("ui/size").border.window
     local col_key = math.floor(sw * 0.44)
     local col_act = math.floor(sw * 0.44)
     local col_del = sw - col_key - col_act
@@ -589,12 +590,12 @@ function BluetoothTurner:showSettings()
             TapClose = {
                 GestureRange:new{
                     ges = "tap",
-                    range = Geom:new{ x = 0, y = 0, w = sw, h = sh },
+                    range = Geom:new{ x = 0, y = 0, w = screen_w, h = sh },
                 }
             }
         },
         CenterContainer:new{
-            dimen = Geom:new{ x = 0, y = 0, w = sw, h = sh },
+            dimen = Geom:new{ x = 0, y = 0, w = screen_w, h = sh },
             movable,
         }
     }
