@@ -329,9 +329,7 @@ function BluetoothTurner:showChangelog()
         text = body,
         buttons_table = {
             {
-                { text = "↑ Scroll Up",   callback = function() viewer.scroll_text_w:scrollText(-1) end },
-                { text = "↓ Scroll Down", callback = function() viewer.scroll_text_w:scrollText(1)  end },
-                { text = "Close",         callback = function() UIManager:close(viewer) end },
+                { text = "Close", callback = function() UIManager:close(viewer) end },
             },
         },
     }
@@ -477,8 +475,10 @@ function BluetoothTurner:showSettings()
     local Menu = require("ui/widget/menu")
 
     local screen_w = Device.screen:getWidth()
-    local sh = Device.screen:getHeight() - 2 * Size.border.window
-    local sw = screen_w - 2 * Size.border.window
+    local screen_h = Device.screen:getHeight()
+    local margin = Size.radius.window
+    local sw = screen_w - 2 * margin
+    local sh = screen_h - 2 * margin
     local col_key = math.floor(sw * 0.44)
     local col_act = math.floor(sw * 0.44)
     local col_del = sw - col_key - col_act
@@ -539,6 +539,8 @@ function BluetoothTurner:showSettings()
             height = sh,
             is_popout = true,
         }
+        picker.dimen.x = margin
+        picker.dimen.y = margin
         picker.onClose = function(self_menu)
             UIManager:close(picker)
             self:showSettings()
