@@ -492,6 +492,7 @@ function BluetoothTurner:showSettings()
     local function showActionPicker(row_index)
         local picker
         local cat_items = {}
+        local flat_items = {}
         local current_section = nil
         local sub_items = nil
         local function finalizeSection()
@@ -518,7 +519,7 @@ function BluetoothTurner:showSettings()
                 sub_items = {}
             elseif current_section then
                 local id = action.id
-                sub_items[#sub_items + 1] = {
+                local item = {
                     text = action.label,
                     callback = function()
                         UIManager:close(picker)
@@ -528,9 +529,32 @@ function BluetoothTurner:showSettings()
                         self:showSettings()
                     end,
                 }
+                sub_items[#sub_items + 1] = item
+                flat_items[#flat_items + 1] = item
             end
         end
         finalizeSection()
+        local function doSearch(query)
+            query = query and query:lower() or ""
+            if query == "" then
+                picker:switchItemTable("Select Action", cat_items)
+                return
+            end
+            local results = {}
+            for _, item in ipairs(flat_items) do
+                if item.text:lower():find(query, 1, true) then
+                    results[#results + 1] = item
+                end
+            end
+            if #results == 0 then
+                results = {{ text = "No actions found" }}
+            end
+            table.insert(results, 1, {
+                text = "← Back to categories",
+                callback = function() doSearch("") end,
+            })
+            picker:switchItemTable('Search: "' .. query .. '"', results)
+        end
         picker = Menu:new{
             title = "Select Action",
             item_table = cat_items,
@@ -539,7 +563,33 @@ function BluetoothTurner:showSettings()
             is_popout = false,
             is_borderless = true,
             covers_fullscreen = true,
+            title_bar_left_icon = "appbar.search",
         }
+        picker.onLeftButtonTap = function()
+            local InputDialog = require("ui/widget/inputdialog")
+            local search_dialog
+            search_dialog = InputDialog:new{
+                title = "Search actions",
+                input_hint = "Type to filter...",
+                buttons = {{
+                    {
+                        text = "Cancel",
+                        callback = function() UIManager:close(search_dialog) end,
+                    },
+                    {
+                        text = "Search",
+                        is_enter_default = true,
+                        callback = function()
+                            local query = search_dialog:getInputText()
+                            UIManager:close(search_dialog)
+                            doSearch(query)
+                        end,
+                    },
+                }},
+            }
+            UIManager:show(search_dialog)
+            search_dialog:onShowKeyboard()
+        end
         picker.onClose = function(self_menu)
             UIManager:close(picker)
             self:showSettings()
