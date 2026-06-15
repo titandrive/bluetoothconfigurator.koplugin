@@ -55,10 +55,21 @@ Actions are grouped into the following categories:
 
 Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Configure Bluetooth Controls**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available you will be prompted to install it. KOReader will need to be restarted for the update to take effect.
 
-## Notes
+## Validated Devices
+Although this plugin should work with any Android based E-Reader and bluetooth controller, without issue, it has been validated with the following devices:
 
-- D-pad controllers are supported. The plugin maps joystick axis events (AXIS_X/AXIS_Y) to directional keycodes.
-- The plugin only appears in the menu when a book is open.
+### E-Readers / Android Devices 
+- Boox Go 7
+- Boox Nova 2
+- BigMe Hibreak Pro
+- Samsumg S26 Ultra
+
+### Controllers / Page Turners 
+- 8BitDo Micro
+- 8BitDo FC30
+- 8BitDo SN30 Pro
+- [Amazon Smart Selfie Ring](https://a.co/d/0aWYZfTW)
+- [ADZERD Page Turner Ring](https://a.co/d/09Ze3ATI)
 
 ## Testers Needed
 As this plugin is in beta, testers are needed and appreciated! If you run into any controllers or actions that don't work, or other problems, don't hesitate to create an issue. I am a big propnent of accessibility and want this plugin to work perfectly for everyone. Page turners have been a life saver for me. 
