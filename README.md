@@ -11,8 +11,6 @@
 
 Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller and page turner buttons to actions within the reader. Not only is this far easier then the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides for more controlls then keymapping allows. It supports standard media keys as well as D-pad/joystick controllers. 
 
-It has been verified to work with both [8BitDo Micro](https://www.8bitdo.com/micro/) as well as a few generic page turners such as [this](https://www.amazon.com/dp/B0B6RBHJFY?ref_=ppx_hzsearch_conn_dt_b_fed_asin_title_3) one, although it should support any similar controller. 
-
 <img src="demo.gif" height="400" /><img height="400" alt="Screenshot_20260611_235123_blurred" src="https://github.com/user-attachments/assets/f8879974-98c3-4f29-898e-1293f69e20a4" /><img height="400" alt="Screenshot_20260611_235129" src="https://github.com/user-attachments/assets/9807d1db-5434-4303-b093-fbe760377932" />
 
 
@@ -56,13 +54,13 @@ Actions are grouped into the following categories:
 Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Configure Bluetooth Controls**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available you will be prompted to install it. KOReader will need to be restarted for the update to take effect.
 
 ## Validated Devices
-Although this plugin should work with any Android based E-Reader and bluetooth controller, without issue, it has been validated with the following devices:
+Although this plugin should work with any Android based E-Reader and bluetooth controller, it has been validated with the following devices:
 
 ### E-Readers / Android Devices 
 - Boox Go 7
 - Boox Nova 2
 - BigMe Hibreak Pro
-- Samsumg S26 Ultra
+- Samsung S26 Ultra
 
 ### Controllers / Page Turners 
 - 8BitDo Micro
