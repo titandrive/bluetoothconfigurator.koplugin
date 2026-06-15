@@ -324,13 +324,16 @@ function BluetoothTurner:showChangelog()
     local title = (release.tag_name or "Latest") .. " Release Notes"
     local body = (release.body or "No release notes available."):gsub("\r\n", "\n"):gsub("\r", "\n")
 
-    UIManager:show(TextViewer:new{
+    local tv = TextViewer:new{
         title = title,
         text = body,
         width = Device.screen:getWidth(),
         height = Device.screen:getHeight(),
         add_default_buttons = true,
-    })
+    }
+    tv.frame.bordersize = 0
+    tv.frame.radius = 0
+    UIManager:show(tv)
 end
 
 function BluetoothTurner:checkForUpdates()
@@ -531,9 +534,11 @@ function BluetoothTurner:showSettings()
         picker = Menu:new{
             title = "Select Action",
             item_table = cat_items,
-            width = sw,
-            height = sh,
-            is_popout = true,
+            width = screen_w,
+            height = screen_h,
+            is_popout = false,
+            is_borderless = true,
+            covers_fullscreen = true,
         }
         picker.onClose = function(self_menu)
             UIManager:close(picker)
