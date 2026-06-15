@@ -3,7 +3,7 @@ local Event = require("ui/event")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
-local PLUGIN_VERSION = "1.3.1"
+local PLUGIN_VERSION = "1.3.0"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 
@@ -251,8 +251,9 @@ function BluetoothTurner:showInfoPanel()
             {{ text = "Changelog",         callback = function() self:showChangelog() end }},
             {{ text = "GitHub Page",       callback = function()
                 local url = "https://github.com/" .. GITHUB_REPO
-                local ok = pcall(Device.openUrl, Device, url)
-                if not ok then
+                if Device:canOpenLink() then
+                    Device:openLink(url)
+                else
                     local InfoMessage = require("ui/widget/infomessage")
                     UIManager:show(InfoMessage:new{ text = url })
                 end
