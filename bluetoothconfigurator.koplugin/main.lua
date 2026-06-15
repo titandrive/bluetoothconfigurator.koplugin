@@ -217,49 +217,82 @@ function BluetoothTurner:addToMainMenu(menu_items)
 end
 
 function BluetoothTurner:showInfoPanel()
-    local ButtonDialog = require("ui/widget/buttondialog")
-    local panel
-    local Device = require("device")
+    local TitleBar = require("ui/widget/titlebar")
+    local ButtonTable = require("ui/widget/buttontable")
+    local CenterContainer = require("ui/widget/container/centercontainer")
+    local FrameContainer = require("ui/widget/container/framecontainer")
+    local MovableContainer = require("ui/widget/container/movablecontainer")
+    local VerticalGroup = require("ui/widget/verticalgroup")
+    local InputContainer = require("ui/widget/container/inputcontainer")
+    local GestureRange = require("ui/gesturerange")
+    local Blitbuffer = require("ffi/blitbuffer")
     local Size = require("ui/size")
+    local Geom = require("ui/geometry")
+
     local screen_w = Device.screen:getWidth()
-    panel = ButtonDialog:new{
+    local screen_h = Device.screen:getHeight()
+    local sw = screen_w - 2 * Size.border.window
+    local sh = screen_h - 2 * Size.border.window
+
+    local panel
+
+    local title_bar = TitleBar:new{
+        width = sw,
+        align = "center",
+        with_bottom_line = true,
         title = "Bluetooth Configurator",
-        title_align = "center",
-        width = screen_w - 2 * Size.border.window,
+    }
+
+    local button_table = ButtonTable:new{
+        width = sw - 2 * Size.padding.button,
         buttons = {
-            {
-                {
-                    text = "Version: " .. PLUGIN_VERSION,
-                    callback = function() end,
-                },
-            },
-            {
-                {
-                    text = "Check for Updates",
-                    callback = function()
-                        self:checkForUpdates()
-                    end,
-                },
-            },
-            {
-                {
-                    text = "Changelog",
-                    callback = function()
-                        self:showChangelog()
-                    end,
-                },
-            },
-            {
-                {
-                    text = "Back",
-                    callback = function()
-                        UIManager:close(panel)
-                        self:showSettings()
-                    end,
-                },
-            },
+            {{ text = "Version: " .. PLUGIN_VERSION, callback = function() end }},
+            {{ text = "Check for Updates", callback = function() self:checkForUpdates() end }},
+            {{ text = "Changelog",         callback = function() self:showChangelog() end }},
+            {{ text = "Back",              callback = function() UIManager:close(panel); self:showSettings() end }},
+        },
+        zero_sep = false,
+    }
+
+    local frame = FrameContainer:new{
+        radius = Size.radius.window,
+        padding = 0,
+        padding_top = 0,
+        padding_bottom = 0,
+        margin = 0,
+        bordersize = Size.border.window,
+        background = Blitbuffer.COLOR_WHITE,
+        VerticalGroup:new{
+            align = "left",
+            title_bar,
+            button_table,
         },
     }
+
+    local movable = MovableContainer:new{ frame }
+
+    panel = InputContainer:new{
+        ges_events = {
+            TapClose = {
+                GestureRange:new{
+                    ges = "tap",
+                    range = Geom:new{ x = 0, y = 0, w = screen_w, h = sh },
+                }
+            }
+        },
+        CenterContainer:new{
+            dimen = Geom:new{ x = 0, y = 0, w = screen_w, h = sh },
+            movable,
+        }
+    }
+
+    function panel:onTapClose(_, ges)
+        if ges.pos:notIntersectWith(movable.dimen) then
+            UIManager:close(self)
+        end
+        return true
+    end
+
     UIManager:show(panel)
 end
 
@@ -278,7 +311,17 @@ end
 function BluetoothTurner:showChangelog()
     local InfoMessage = require("ui/widget/infomessage")
     local TextViewer = require("ui/widget/textviewer")
-    local Device = require("device")
+    local TitleBar = require("ui/widget/titlebar")
+    local ButtonTable = require("ui/widget/buttontable")
+    local CenterContainer = require("ui/widget/container/centercontainer")
+    local FrameContainer = require("ui/widget/container/framecontainer")
+    local MovableContainer = require("ui/widget/container/movablecontainer")
+    local VerticalGroup = require("ui/widget/verticalgroup")
+    local InputContainer = require("ui/widget/container/inputcontainer")
+    local GestureRange = require("ui/gesturerange")
+    local Blitbuffer = require("ffi/blitbuffer")
+    local Size = require("ui/size")
+    local Geom = require("ui/geometry")
 
     local fetching = InfoMessage:new{ text = "Fetching changelog..." }
     UIManager:show(fetching)
@@ -320,20 +363,95 @@ function BluetoothTurner:showChangelog()
         return
     end
 
-    local release = data[1]
-    local title = (release.tag_name or "Latest") .. " Release Notes"
-    local body = (release.body or "No release notes available."):gsub("\r\n", "\n"):gsub("\r", "\n")
+    local screen_w = Device.screen:getWidth()
+    local screen_h = Device.screen:getHeight()
+    local sw = screen_w - 2 * Size.border.window
+    local sh = screen_h - 2 * Size.border.window
 
-    local tv = TextViewer:new{
-        title = title,
-        text = body,
-        width = Device.screen:getWidth(),
-        height = Device.screen:getHeight(),
-        add_default_buttons = true,
+    local dialog
+
+    local function showReleaseNotes(release)
+        local body = (release.body or "No release notes available."):gsub("\r\n", "\n"):gsub("\r", "\n")
+        local tv = TextViewer:new{
+            title = (release.tag_name or "Release") .. " Release Notes",
+            text = body,
+            width = screen_w,
+            height = screen_h,
+            add_default_buttons = true,
+        }
+        tv.frame.bordersize = 0
+        tv.frame.radius = 0
+        UIManager:show(tv)
+    end
+
+    local buttons = {}
+    for i, release in ipairs(data) do
+        if i > 5 then break end
+        local tag = release.tag_name or "Unknown"
+        local ver = tag:match("^v?(.+)$") or tag
+        local tags = {}
+        if i == 1 then table.insert(tags, "Latest") end
+        if ver == PLUGIN_VERSION then table.insert(tags, "Installed") end
+        local label = tag .. (#tags > 0 and "  (" .. table.concat(tags, " \xC2\xB7 ") .. ")" or "")
+        local rel = release
+        table.insert(buttons, {{ text = label, align = "left", callback = function() showReleaseNotes(rel) end }})
+    end
+    table.insert(buttons, {{ text = "Close", callback = function() UIManager:close(dialog) end }})
+
+    local title_bar = TitleBar:new{
+        width = sw,
+        align = "center",
+        with_bottom_line = true,
+        title = "Changelog",
+        subtitle = "Installed: v" .. PLUGIN_VERSION,
     }
-    tv.frame.bordersize = 0
-    tv.frame.radius = 0
-    UIManager:show(tv)
+
+    local button_table = ButtonTable:new{
+        width = sw - 2 * Size.padding.button,
+        buttons = buttons,
+        zero_sep = false,
+    }
+
+    local frame = FrameContainer:new{
+        radius = Size.radius.window,
+        padding = 0,
+        padding_top = 0,
+        padding_bottom = 0,
+        margin = 0,
+        bordersize = Size.border.window,
+        background = Blitbuffer.COLOR_WHITE,
+        VerticalGroup:new{
+            align = "left",
+            title_bar,
+            button_table,
+        },
+    }
+
+    local movable = MovableContainer:new{ frame }
+
+    dialog = InputContainer:new{
+        ges_events = {
+            TapClose = {
+                GestureRange:new{
+                    ges = "tap",
+                    range = Geom:new{ x = 0, y = 0, w = screen_w, h = sh },
+                }
+            }
+        },
+        CenterContainer:new{
+            dimen = Geom:new{ x = 0, y = 0, w = screen_w, h = sh },
+            movable,
+        }
+    }
+
+    function dialog:onTapClose(_, ges)
+        if ges.pos:notIntersectWith(movable.dimen) then
+            UIManager:close(self)
+        end
+        return true
+    end
+
+    UIManager:show(dialog)
 end
 
 function BluetoothTurner:checkForUpdates()
@@ -478,9 +596,10 @@ function BluetoothTurner:showSettings()
     local screen_h = Device.screen:getHeight()
     local sw = screen_w - 2 * Size.border.window
     local sh = screen_h - 2 * Size.border.window
-    local col_key = math.floor(sw * 0.44)
-    local col_act = math.floor(sw * 0.44)
-    local col_del = sw - col_key - col_act
+    local sep_w = Size.line.medium
+    local col_key = math.floor((sw - 2 * sep_w) * 0.44)
+    local col_act = math.floor((sw - 2 * sep_w) * 0.44)
+    local col_del = sw - 2 * sep_w - col_key - col_act
 
     local dialog
 
