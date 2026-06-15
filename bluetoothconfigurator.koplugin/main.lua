@@ -211,7 +211,7 @@ end
 function BluetoothTurner:addToMainMenu(menu_items)
     menu_items.bluetooth_configurator = {
         sorting_hint = "tools",
-        text = "Configure Bluetooth Controls",
+        text = "Bluetooth Configurator",
         callback = function() self:showSettings() end,
     }
 end
