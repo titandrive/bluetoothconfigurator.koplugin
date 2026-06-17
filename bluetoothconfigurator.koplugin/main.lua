@@ -3,7 +3,7 @@ local Event = require("ui/event")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
-local PLUGIN_VERSION = "1.3.0"
+local PLUGIN_VERSION = "1.3.1"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 
@@ -237,7 +237,7 @@ function BluetoothTurner:showInfoPanel()
     local panel
 
     local title_bar = TitleBar:new{
-        width = sw,
+        width = sw - 2 * Size.padding.button,
         align = "center",
         with_bottom_line = true,
         title = "Bluetooth Configurator",
@@ -319,12 +319,12 @@ end
 
 function BluetoothTurner:showChangelog()
     local InfoMessage = require("ui/widget/infomessage")
-    local TextViewer = require("ui/widget/textviewer")
     local TitleBar = require("ui/widget/titlebar")
     local ButtonTable = require("ui/widget/buttontable")
     local CenterContainer = require("ui/widget/container/centercontainer")
     local FrameContainer = require("ui/widget/container/framecontainer")
     local MovableContainer = require("ui/widget/container/movablecontainer")
+    local ScrollableContainer = require("ui/widget/container/scrollablecontainer")
     local VerticalGroup = require("ui/widget/verticalgroup")
     local InputContainer = require("ui/widget/container/inputcontainer")
     local GestureRange = require("ui/gesturerange")
@@ -380,17 +380,25 @@ function BluetoothTurner:showChangelog()
     local dialog
 
     local function showReleaseNotes(release)
+        local Menu = require("ui/widget/menu")
         local body = (release.body or "No release notes available."):gsub("\r\n", "\n"):gsub("\r", "\n")
-        local tv = TextViewer:new{
+
+        local items = {}
+        for line in (body .. "\n"):gmatch("([^\n]*)\n") do
+            table.insert(items, { text = line ~= "" and line or " ", callback = function() end })
+        end
+
+        local notes_menu = Menu:new{
             title = (release.tag_name or "Release") .. " Release Notes",
-            text = body,
+            item_table = items,
             width = screen_w,
             height = screen_h,
-            add_default_buttons = true,
+            is_popout = false,
+            is_borderless = true,
+            covers_fullscreen = true,
         }
-        tv.frame.bordersize = 0
-        tv.frame.radius = 0
-        UIManager:show(tv)
+        notes_menu.onMenuSelect = function() end
+        UIManager:show(notes_menu)
     end
 
     local buttons = {}
@@ -403,12 +411,15 @@ function BluetoothTurner:showChangelog()
         if ver == PLUGIN_VERSION then table.insert(tags, "Installed") end
         local label = tag .. (#tags > 0 and "  (" .. table.concat(tags, " \xC2\xB7 ") .. ")" or "")
         local rel = release
-        table.insert(buttons, {{ text = label, align = "left", callback = function() showReleaseNotes(rel) end }})
+        table.insert(buttons, {{ text = label, align = "left", callback = function()
+            UIManager:close(dialog)
+            showReleaseNotes(rel)
+        end }})
     end
     table.insert(buttons, {{ text = "Close", callback = function() UIManager:close(dialog) end }})
 
     local title_bar = TitleBar:new{
-        width = sw,
+        width = sw - 2 * Size.padding.button,
         align = "center",
         with_bottom_line = true,
         title = "Changelog",
@@ -421,6 +432,18 @@ function BluetoothTurner:showChangelog()
         zero_sep = false,
     }
 
+    local title_h = title_bar:getSize().h
+    local btn_h = button_table:getSize().h
+    local content
+    if btn_h > sh - title_h then
+        content = ScrollableContainer:new{
+            dimen = Geom:new{ w = sw - 2 * Size.padding.button, h = sh - title_h },
+            button_table,
+        }
+    else
+        content = button_table
+    end
+
     local frame = FrameContainer:new{
         radius = Size.radius.window,
         padding = 0,
@@ -432,7 +455,7 @@ function BluetoothTurner:showChangelog()
         VerticalGroup:new{
             align = "left",
             title_bar,
-            button_table,
+            content,
         },
     }
 
@@ -606,9 +629,10 @@ function BluetoothTurner:showSettings()
     local sw = screen_w - 2 * Size.border.window
     local sh = screen_h - 2 * Size.border.window
     local sep_w = Size.line.medium
-    local col_key = math.floor((sw - 2 * sep_w) * 0.44)
-    local col_act = math.floor((sw - 2 * sep_w) * 0.44)
-    local col_del = sw - 2 * sep_w - col_key - col_act
+    local btn_w = sw - 2 * Size.padding.button
+    local col_key = math.floor((btn_w - 2 * sep_w) * 0.44)
+    local col_act = math.floor((btn_w - 2 * sep_w) * 0.44)
+    local col_del = btn_w - 2 * sep_w - col_key - col_act
 
     local dialog
 
@@ -799,7 +823,7 @@ function BluetoothTurner:showSettings()
     }
 
     local title_bar = TitleBar:new{
-        width = sw,
+        width = sw - 2 * Size.padding.button,
         align = "center",
         with_bottom_line = true,
         title = "Configure Bluetooth Controls",
@@ -821,7 +845,7 @@ function BluetoothTurner:showSettings()
     local content
     if btn_h > sh - title_h then
         content = ScrollableContainer:new{
-            dimen = Geom:new{ w = sw, h = sh - title_h },
+            dimen = Geom:new{ w = sw - 2 * Size.padding.button, h = sh - title_h },
             button_table,
         }
     else
