@@ -9,7 +9,7 @@
 
 ---
 
-Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller and page turner buttons to actions within the reader. Not only is this far easier then the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides for more controlls then keymapping allows. It supports standard media keys as well as D-pad/joystick controllers. 
+Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller and page turner buttons to actions within the reader. Not only is this far easier then the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides for more controls then keymapping allows. It supports standard media keys as well as D-pad/joystick controllers. 
 
 <img src="demo.gif" height="400" /><img height="400" alt="Screenshot_20260611_235123_blurred" src="https://github.com/user-attachments/assets/f8879974-98c3-4f29-898e-1293f69e20a4" /><img height="400" alt="Screenshot_20260611_235129" src="https://github.com/user-attachments/assets/9807d1db-5434-4303-b093-fbe760377932" />
 
@@ -24,11 +24,11 @@ Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively
 1. Download or clone this repository
 2. Copy the `bluetoothconfigurator.koplugin` folder into your KOReader `plugins` directory
 3. Restart KOReader
-4. Open a book, then go to the top menu → **Plugins** → **Configure Bluetooth Controls**
+4. Open a book, then go to the top menu → **Plugins** → **Bluetooth Configurator**
 
 ## Usage
 
-Open a book and access **Plugins → Configure Bluetooth Controls** to set up your bindings.
+Open a book and access **Plugins → Bluetooth Configurator** to set up your bindings.
 
 - Tap **Add Binding** to create a new binding
 - Tap **"tap to set..."**. The plugin will begin listening for your controller.
@@ -51,13 +51,13 @@ Actions are grouped into the following categories:
 
 ## Updates
 
-Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Configure Bluetooth Controls**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available you will be prompted to install it. KOReader will need to be restarted for the update to take effect.
+Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available you will be prompted to install it. KOReader will need to be restarted for the update to take effect.
 
 ## Validated Devices
 Although this plugin should work with any Android based E-Reader and bluetooth controller, it has been validated with the following devices:
 
 ### E-Readers / Android Devices 
-- Boox Go 7
+- Boox Go 7 (Color / Black & White)
 - Boox Nova 2
 - BigMe Hibreak Pro
 - Samsung S26 Ultra
