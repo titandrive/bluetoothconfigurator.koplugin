@@ -826,7 +826,7 @@ function BluetoothTurner:showSettings()
         width = sw - 2 * Size.padding.button,
         align = "center",
         with_bottom_line = true,
-        title = "Configure Bluetooth Controls",
+        title = "Bluetooth Configurator",
         right_icon = "appbar.settings",
         right_icon_tap_callback = function()
             UIManager:close(dialog)
