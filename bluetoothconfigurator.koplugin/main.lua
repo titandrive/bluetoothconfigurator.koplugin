@@ -209,6 +209,10 @@ function BluetoothTurner:onReaderReady()
     self:backgroundUpdateCheck()
 end
 
+function BluetoothTurner:onResume()
+    self:backgroundUpdateCheck()
+end
+
 local _update_last_check = nil
 local _update_in_flight  = false
 local UPDATE_INTERVAL    = 3600
@@ -222,35 +226,48 @@ function BluetoothTurner:backgroundUpdateCheck()
     local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
     if not ok_nm or not NetworkMgr:isWifiOn() then return end
 
-    _update_in_flight = true
+    _update_in_flight  = true
+    _update_last_check = now
+
     UIManager:scheduleIn(0.1, function()
         local ver = nil
         pcall(function()
-            local ok_https, https = pcall(require, "ssl.https")
-            if not ok_https then return end
-            local ltn12 = require("ltn12")
-            local sink = {}
-            local _, status = https.request{
-                url     = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases/latest",
-                method  = "GET",
-                headers = {
-                    ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION,
-                    ["Accept"]     = "application/vnd.github+json",
-                },
-                sink = ltn12.sink.table(sink),
-            }
-            if status ~= 200 then return end
+            local ok_req, http, ltn12, socket, socketutil = pcall(function()
+                return require("socket/http"),
+                       require("ltn12"),
+                       require("socket"),
+                       require("socketutil")
+            end)
+            if not ok_req then return end
+            local body = {}
+            local ok_fetch, code = pcall(function()
+                socketutil:set_timeout(socketutil.LARGE_BLOCK_TIMEOUT, socketutil.LARGE_TOTAL_TIMEOUT)
+                local c = socket.skip(1, http.request({
+                    url      = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases/latest",
+                    method   = "GET",
+                    headers  = {
+                        ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION,
+                        ["Accept"]     = "application/vnd.github.v3+json",
+                    },
+                    sink     = ltn12.sink.table(body),
+                    redirect = true,
+                }))
+                socketutil:reset_timeout()
+                return c
+            end)
+            if not ok_fetch then pcall(function() socketutil:reset_timeout() end) return end
+            if code ~= 200 then return end
             local ok_json, json = pcall(require, "json")
             if not ok_json then return end
-            local ok_parse, data = pcall(json.decode, table.concat(sink))
+            local ok_parse, data = pcall(json.decode, table.concat(body))
             if not ok_parse or not data or not data.tag_name then return end
             ver = data.tag_name:match("^v?(.+)$") or data.tag_name
         end)
-        _update_last_check = os.time()
-        _update_in_flight  = false
+        _update_in_flight = false
         if ver and self:isNewerVersion(ver, PLUGIN_VERSION) then
             local Notification = require("ui/widget/notification")
-            Notification:notify("Bluetooth Configurator: v" .. ver .. " available")
+            Notification:notify("Bluetooth Configurator: v" .. ver .. " available",
+                Notification.SOURCE_ALWAYS_SHOW)
         end
     end)
 end
