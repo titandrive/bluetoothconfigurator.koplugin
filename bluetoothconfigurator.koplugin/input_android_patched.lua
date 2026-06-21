@@ -61,15 +61,23 @@ pcall(ffi.cdef, [[ float AMotionEvent_getAxisValue(const void* motion_event, int
 pcall(ffi.cdef, [[ int AInputEvent_getSource(const void* event); ]])
 
 local hat_x, hat_y = 0, 0
+local trig_l, trig_r = false, false
 
 local function handleHatAxes(motion_event)
-    -- Only process joystick-source events (AINPUT_SOURCE_JOYSTICK = 0x01000010)
+    -- Only process gamepad/joystick-source events
+    -- AINPUT_SOURCE_JOYSTICK = 0x01000010, AINPUT_SOURCE_GAMEPAD = 0x00000401
     local src = tonumber(android.lib.AInputEvent_getSource(motion_event)) or 0
-    if bit.band(src, 0x01000010) == 0 then return end
-    -- This device uses AXIS_X(0)/AXIS_Y(1) for D-pad, not the standard HAT_X(15)/HAT_Y(16)
+    if bit.band(src, 0x01000010) == 0 and bit.band(src, 0x00000401) == 0 then return end
     local timev = genInputTimeval(android.lib.AMotionEvent_getEventTime(motion_event))
-    local nx = tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 0, 0)) or 0
-    local ny = tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 1, 0)) or 0
+    -- Read both AXIS_X/Y (0/1, used by some controllers) and AXIS_HAT_X/Y (15/16, used by others e.g. SN30 Pro)
+    local ax0 = tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 0, 0)) or 0
+    local ay0 = tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 1, 0)) or 0
+    local ax15 = tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 15, 0)) or 0
+    local ay16 = tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 16, 0)) or 0
+    local raw_x = math.abs(ax15) > math.abs(ax0) and ax15 or ax0
+    local raw_y = math.abs(ay16) > math.abs(ay0) and ay16 or ay0
+    local nx = raw_x
+    local ny = raw_y
     if math.abs(nx) < 0.5 then nx = 0 elseif nx > 0 then nx = 1 else nx = -1 end
     if math.abs(ny) < 0.5 then ny = 0 elseif ny > 0 then ny = 1 else ny = -1 end
     local changed = false
@@ -99,6 +107,39 @@ local function handleHatAxes(motion_event)
             end
         end
         hat_y = ny
+        changed = true
+    end
+    -- Analog triggers: L2 = ABS_Z → axis 11 or AXIS_LTRIGGER 17 or AXIS_BRAKE 23
+    --                  R2 = ABS_RZ → axis 14 or AXIS_RTRIGGER 18 or AXIS_GAS 22
+    -- Map to AKEYCODE_BUTTON_L2 (104) / AKEYCODE_BUTTON_R2 (105)
+    local lv = math.max(
+        tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 11, 0)) or 0,
+        tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 17, 0)) or 0,
+        tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 23, 0)) or 0)
+    local rv = math.max(
+        tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 14, 0)) or 0,
+        tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 18, 0)) or 0,
+        tonumber(android.lib.AMotionEvent_getAxisValue(motion_event, 22, 0)) or 0)
+    local nl = lv > 0.1
+    local nr = rv > 0.1
+    if nl ~= trig_l then
+        genEmuEvent(C.EV_KEY, 104, nl and 1 or 0, timev)
+        if nl and input.capture_callback then
+            local cb = input.capture_callback
+            input.capture_callback = nil
+            cb(104)
+        end
+        trig_l = nl
+        changed = true
+    end
+    if nr ~= trig_r then
+        genEmuEvent(C.EV_KEY, 105, nr and 1 or 0, timev)
+        if nr and input.capture_callback then
+            local cb = input.capture_callback
+            input.capture_callback = nil
+            cb(105)
+        end
+        trig_r = nr
         changed = true
     end
     if changed then

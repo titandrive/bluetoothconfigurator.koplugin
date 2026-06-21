@@ -184,6 +184,7 @@ local KEY_NAMES = {
     [91]  = "Mute",       [92]  = "Page Up",      [93] = "Page Down",
     [96]  = "Button A",   [97]  = "Button B",     [99] = "Button X",
     [100] = "Button Y",   [102] = "L1",           [103] = "R1",
+    [104] = "L2",           [105] = "R2",
 }
 
 local function keycodeLabel(code)
