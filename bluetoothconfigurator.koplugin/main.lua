@@ -780,10 +780,23 @@ function BluetoothTurner:showSettings()
         end
         item_table = filtered_item_table
 
+        -- The plain Menu widget (unlike TouchMenu) doesn't render checked_func
+        -- at all, so nothing marked which category -- or which action inside
+        -- it -- is currently selected. Surface it as a checkmark on the right.
+        local function addCheckmark(entry)
+            if entry.checked_func and entry.mandatory == nil and entry.mandatory_func == nil then
+                entry.mandatory_func = function()
+                    return entry.checked_func() and "✓" or ""
+                end
+            end
+        end
+
         local flat_items = {}
         for _, entry in ipairs(item_table) do
+            addCheckmark(entry)
             if entry.sub_item_table then
                 for _, sub in ipairs(entry.sub_item_table) do
+                    addCheckmark(sub)
                     flat_items[#flat_items + 1] = sub
                 end
             end
@@ -832,6 +845,9 @@ function BluetoothTurner:showSettings()
         picker.onMenuSelect = function(self_menu, item)
             local sub_item_table = item.sub_item_table_func and item.sub_item_table_func() or item.sub_item_table
             if sub_item_table then
+                for _, sub in ipairs(sub_item_table) do
+                    addCheckmark(sub)
+                end
                 self_menu.item_table.title = self_menu.title
                 table.insert(self_menu.item_table_stack, self_menu.item_table)
                 self_menu:switchItemTable(item.text, sub_item_table)
