@@ -764,6 +764,22 @@ function BluetoothTurner:showSettings()
         local item_table = {}
         dispatcher:addSubMenu(picker_state, item_table, binding, "actions")
 
+        -- Only one action fires per button press, so drop the format-specific
+        -- (epub vs pdf) categories and the multi-action/QuickMenu management
+        -- rows dispatcher appends after the categories -- neither applies here.
+        local function isExcludedCategory(text)
+            return text ~= nil
+                and (text:find("Reflowable documents", 1, true) ~= nil
+                    or text:find("Fixed layout documents", 1, true) ~= nil)
+        end
+        local filtered_item_table = {}
+        for i, entry in ipairs(item_table) do
+            if (i == 1 or entry.sub_item_table) and not isExcludedCategory(entry.text) then
+                filtered_item_table[#filtered_item_table + 1] = entry
+            end
+        end
+        item_table = filtered_item_table
+
         local flat_items = {}
         for _, entry in ipairs(item_table) do
             if entry.sub_item_table then
