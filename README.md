@@ -49,14 +49,9 @@ Bindings are saved automatically and persist across sessions.
 
 ## Supported Actions
 
-Actions are grouped into the following categories:
+Bluetooth Configurator uses KOReader's built-in dispatcher action list. Available actions are grouped by KOReader's dispatcher categories and can include general, device, screen/light, file browser, reader, reflowable document, and fixed layout document actions.
 
-- **Navigation** — Next/Previous Page, Next/Previous Chapter, First/Last Page, Go to Page, Skim Document, Random Page, Back, Previous/Next Location, Add/Clear Location History, Pin Page, Go to Pinned Page
-- **Bookmarks** — Toggle Bookmark, Bookmarks, Bookmark Browser, Bookmark Search, Previous/Next/First/Last/Latest Bookmark
-- **Display** — Toggle Night Mode, Increase/Decrease Font Size, Frontlight Dialog, Toggle Frontlight, Increase/Decrease Frontlight, Toggle Status Bar, Toggle Chapter Progress Bar, Full Screen Refresh
-- **Reader** — Table of Contents, Book Map, Page Browser, Show Menu, Menu Search, Show Bottom Menu, Fulltext Search, Last Fulltext Search Results, Book Status, Book Information, Book Description, Book Cover, Translate Page, Toggle Style Tweaks, Cycle Highlight Action/Style, Toggle Page Turn Direction, Save Book Metadata, Export Annotations, Screenshot
-- **Library** — File Browser, History, History Search, Favorites, Collections, Collections Search, Open Previous Document, Open Next/Previous File in Folder, Notebook File, Dictionary Lookup, Wikipedia Lookup
-- **Device** — Toggle Wi-Fi, Toggle Orientation, Invert Rotation, Rotate 90° CW/CCW, Sleep
+Actions added to KOReader's dispatcher by KOReader updates or other plugins should appear automatically.
 
 ## Updates
 
