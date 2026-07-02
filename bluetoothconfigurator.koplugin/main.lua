@@ -780,6 +780,41 @@ function BluetoothTurner:showSettings()
         end
         item_table = filtered_item_table
 
+        table.insert(item_table, 1, {
+            text = "Clear Selected Action(s)",
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                binding.actions = {}
+                picker_state.updated = true
+                if touchmenu_instance then touchmenu_instance:updateItems() end
+            end,
+        })
+
+        -- Dispatcher only exposes page turning as a single "Turn pages" action
+        -- with a numeric arg (page_jmp, -100 to 100) requiring a value picker.
+        -- Add one-tap "Next/Previous Page" shortcuts for the common case.
+        local function makePageJumpItem(text, amount)
+            return {
+                text = text,
+                checked_func = function()
+                    return binding.actions ~= nil and binding.actions.page_jmp == amount
+                end,
+                callback = function(touchmenu_instance)
+                    binding.actions = binding.actions or {}
+                    binding.actions.page_jmp = amount
+                    picker_state.updated = true
+                    if touchmenu_instance then touchmenu_instance:updateItems() end
+                end,
+            }
+        end
+        for _, entry in ipairs(item_table) do
+            if entry.text == "Reader" and entry.sub_item_table then
+                table.insert(entry.sub_item_table, 1, makePageJumpItem("Previous Page", -1))
+                table.insert(entry.sub_item_table, 1, makePageJumpItem("Next Page", 1))
+                break
+            end
+        end
+
         -- The plain Menu widget (unlike TouchMenu) doesn't render checked_func
         -- at all, so nothing marked which category -- or which action inside
         -- it -- is currently selected. Surface it as a checkmark on the right.
@@ -856,20 +891,35 @@ function BluetoothTurner:showSettings()
             if item.callback then
                 -- Dispatcher's own menus (Hotkeys/Gestures/Profiles) build a set
                 -- of actions and require manually backing out to confirm. This
-                -- plugin fires one action per button press, so close and save
-                -- as soon as a plain toggle/selection is made. If the callback
-                -- opened its own dialog instead (e.g. a numeric value picker for
-                -- "Turn pages"), the window stack grows -- leave this menu open
+                -- plugin fires one action per button press, so a tap replaces
+                -- whatever was previously bound (long-press adds instead, see
+                -- onMenuHold below) and closes/saves as soon as a plain
+                -- toggle/selection is made. If the callback opened its own
+                -- dialog instead (e.g. a numeric value picker for "Turn
+                -- pages"), the window stack grows -- leave this menu open
                 -- underneath so the user can still back out after finishing there.
+                if not item.keep_menu_open then
+                    binding.actions = {}
+                end
                 local stack_depth_before = #UIManager._window_stack
                 item.callback(self_menu)
-                if #UIManager._window_stack > stack_depth_before then
-                    if item.checked_func then
+                if item.keep_menu_open or #UIManager._window_stack > stack_depth_before then
+                    if item.checked_func or item.keep_menu_open then
                         self_menu:updateItems()
                     end
                 else
                     self_menu:onClose()
                 end
+            end
+            return true
+        end
+        picker.onMenuHold = function(self_menu, item)
+            -- Long-press adds this action to the existing set instead of
+            -- replacing it, for the rare case of wanting more than one
+            -- action on a single button press.
+            if item.callback and not (item.sub_item_table_func or item.sub_item_table) then
+                item.callback(self_menu)
+                self_menu:updateItems()
             end
             return true
         end
