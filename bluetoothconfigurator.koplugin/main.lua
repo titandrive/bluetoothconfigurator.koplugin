@@ -764,7 +764,39 @@ function BluetoothTurner:showSettings()
         local item_table = {}
         dispatcher:addSubMenu(picker_state, item_table, binding, "actions")
 
+        local flat_items = {}
+        for _, entry in ipairs(item_table) do
+            if entry.sub_item_table then
+                for _, sub in ipairs(entry.sub_item_table) do
+                    flat_items[#flat_items + 1] = sub
+                end
+            end
+        end
+
         local picker
+        local function doSearch(query)
+            query = query and query:lower() or ""
+            if query == "" then
+                picker:switchItemTable("Select Action", item_table)
+                return
+            end
+            local results = {}
+            for _, item in ipairs(flat_items) do
+                local text = item.text or (item.text_func and item.text_func()) or ""
+                if tostring(text):lower():find(query, 1, true) then
+                    results[#results + 1] = item
+                end
+            end
+            if #results == 0 then
+                results = {{ text = "No actions found" }}
+            end
+            table.insert(results, 1, {
+                text = "← Back to categories",
+                callback = function() doSearch("") end,
+            })
+            picker:switchItemTable('Search: "' .. query .. '"', results)
+        end
+
         picker = Menu:new{
             title = "Select Action",
             item_table = item_table,
@@ -773,7 +805,33 @@ function BluetoothTurner:showSettings()
             is_popout = false,
             is_borderless = true,
             covers_fullscreen = true,
+            title_bar_left_icon = "appbar.search",
         }
+        picker.onLeftButtonTap = function()
+            local InputDialog = require("ui/widget/inputdialog")
+            local search_dialog
+            search_dialog = InputDialog:new{
+                title = "Search actions",
+                input_hint = "Type to filter...",
+                buttons = {{
+                    {
+                        text = "Cancel",
+                        callback = function() UIManager:close(search_dialog) end,
+                    },
+                    {
+                        text = "Search",
+                        is_enter_default = true,
+                        callback = function()
+                            local query = search_dialog:getInputText()
+                            UIManager:close(search_dialog)
+                            doSearch(query)
+                        end,
+                    },
+                }},
+            }
+            UIManager:show(search_dialog)
+            search_dialog:onShowKeyboard()
+        end
         picker.onClose = function(self_menu)
             UIManager:close(picker)
             if picker_state.updated then
