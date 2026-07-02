@@ -823,6 +823,40 @@ function BluetoothTurner:showSettings()
             covers_fullscreen = true,
             title_bar_left_icon = "appbar.search",
         }
+        -- Dispatcher's item callbacks are written for TouchMenu, which invokes
+        -- callback(touchmenu_instance) and expands sub_item_table_func for
+        -- variant pickers (e.g. "Set highlight action"). The plain Menu widget
+        -- calls item.callback() with no argument and ignores sub_item_table_func
+        -- entirely, so selecting most actions silently did nothing. Mirror
+        -- TouchMenu:onMenuSelect's logic here instead.
+        picker.onMenuSelect = function(self_menu, item)
+            local sub_item_table = item.sub_item_table_func and item.sub_item_table_func() or item.sub_item_table
+            if sub_item_table then
+                self_menu.item_table.title = self_menu.title
+                table.insert(self_menu.item_table_stack, self_menu.item_table)
+                self_menu:switchItemTable(item.text, sub_item_table)
+                return true
+            end
+            if item.callback then
+                -- Dispatcher's own menus (Hotkeys/Gestures/Profiles) build a set
+                -- of actions and require manually backing out to confirm. This
+                -- plugin fires one action per button press, so close and save
+                -- as soon as a plain toggle/selection is made. If the callback
+                -- opened its own dialog instead (e.g. a numeric value picker for
+                -- "Turn pages"), the window stack grows -- leave this menu open
+                -- underneath so the user can still back out after finishing there.
+                local stack_depth_before = #UIManager._window_stack
+                item.callback(self_menu)
+                if #UIManager._window_stack > stack_depth_before then
+                    if item.checked_func then
+                        self_menu:updateItems()
+                    end
+                else
+                    self_menu:onClose()
+                end
+            end
+            return true
+        end
         picker.onLeftButtonTap = function()
             local InputDialog = require("ui/widget/inputdialog")
             local search_dialog
