@@ -193,6 +193,20 @@ local function keepOnlyAction(actions, item)
     end
 end
 
+local function changedActionKey(before, after, fallback_key)
+    if fallback_key then return fallback_key end
+    for k, v in pairs(after or {}) do
+        if k ~= "settings" and (before == nil or before[k] ~= v) then
+            return k
+        end
+    end
+    for k, _ in pairs(before or {}) do
+        if k ~= "settings" and (after == nil or after[k] == nil) then
+            return k
+        end
+    end
+end
+
 local function actionLabel(binding)
     if binding.actions then
         for _, common in ipairs(COMMON_ACTIONS) do
@@ -679,7 +693,10 @@ function BluetoothTurner:showSettings()
                             and actions_before_select[item.key] ~= nil then
                         picker_binding.actions[item.key] = actions_before_select[item.key]
                     end
-                    keepOnlyAction(picker_binding.actions, item.key)
+                end
+                if not item.keep_menu_open and #UIManager._window_stack == stack_depth_before then
+                    keepOnlyAction(picker_binding.actions,
+                        changedActionKey(actions_before_select, picker_binding.actions, item.key))
                 end
                 if item.keep_menu_open or #UIManager._window_stack > stack_depth_before then
                     if item.checked_func or item.keep_menu_open then
