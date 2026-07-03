@@ -129,8 +129,40 @@ local function executeBinding(binding)
     end
 end
 
+-- Curated shortcuts for the actions a page-turner button is most likely to be
+-- bound to, surfaced as their own category at the top of the action picker
+-- instead of making people hunt through General/Device/Reader for them.
+local COMMON_ACTIONS = {
+    { text = "Next Page",           actions = { page_jmp = 1 } },
+    { text = "Previous Page",       actions = { page_jmp = -1 } },
+    { text = "Next Chapter",        actions = { next_chapter = true } },
+    { text = "Previous Chapter",    actions = { prev_chapter = true } },
+    { text = "Toggle Bookmark",     actions = { toggle_bookmark = true } },
+    { text = "Toggle Night Mode",   actions = { night_mode = true } },
+    { text = "Table of Contents",   actions = { toc = true } },
+    { text = "Back",                actions = { back = true } },
+    { text = "Toggle Frontlight",   actions = { toggle_frontlight = true } },
+    { text = "Show Menu",           actions = { show_menu = true } },
+}
+
+local function sameActions(a, b)
+    if a == nil or b == nil then return a == b end
+    for k, v in pairs(a) do
+        if b[k] ~= v then return false end
+    end
+    for k, v in pairs(b) do
+        if a[k] ~= v then return false end
+    end
+    return true
+end
+
 local function actionLabel(binding)
     if binding.actions then
+        for _, common in ipairs(COMMON_ACTIONS) do
+            if sameActions(binding.actions, common.actions) then
+                return common.text
+            end
+        end
         local dispatcher = getDispatcher()
         dispatcher:init()
         return dispatcher:menuTextFunc(binding.actions)
@@ -790,27 +822,38 @@ function BluetoothTurner:showSettings()
             end,
         })
 
-        -- Dispatcher only exposes page turning as a single "Turn pages" action
-        -- with a numeric arg (page_jmp, -100 to 100) requiring a value picker.
-        -- Add one-tap "Next/Previous Page" shortcuts for the common case.
-        local function makePageJumpItem(text, amount)
+        -- One-tap shortcuts for the actions people are most likely to bind a
+        -- button to, so they don't have to hunt through General/Device/Reader
+        -- (also covers page turning, which dispatcher only exposes as a single
+        -- "Turn pages" action with a numeric arg requiring a value picker).
+        local function makeCommonActionItem(common)
             return {
-                text = text,
+                text = common.text,
                 checked_func = function()
-                    return binding.actions ~= nil and binding.actions.page_jmp == amount
+                    return sameActions(binding.actions, common.actions)
                 end,
                 callback = function(touchmenu_instance)
-                    binding.actions = binding.actions or {}
-                    binding.actions.page_jmp = amount
+                    binding.actions = copyTable(common.actions)
                     picker_state.updated = true
                     if touchmenu_instance then touchmenu_instance:updateItems() end
                 end,
             }
         end
+        local common_sub_items = {}
+        for _, common in ipairs(COMMON_ACTIONS) do
+            common_sub_items[#common_sub_items + 1] = makeCommonActionItem(common)
+        end
+        table.insert(item_table, 3, {
+            text = "Common Actions",
+            sub_item_table = common_sub_items,
+        })
+
+        -- Next/Previous Page also get a spot inside Reader, since that's where
+        -- people familiar with dispatcher's own categories would look for them.
         for _, entry in ipairs(item_table) do
             if entry.text == "Reader" and entry.sub_item_table then
-                table.insert(entry.sub_item_table, 1, makePageJumpItem("Previous Page", -1))
-                table.insert(entry.sub_item_table, 1, makePageJumpItem("Next Page", 1))
+                table.insert(entry.sub_item_table, 1, makeCommonActionItem(COMMON_ACTIONS[2]))
+                table.insert(entry.sub_item_table, 1, makeCommonActionItem(COMMON_ACTIONS[1]))
                 break
             end
         end
