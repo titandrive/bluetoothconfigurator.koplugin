@@ -714,27 +714,39 @@ function BluetoothTurner:showSettings()
         picker.onLeftButtonTap = function()
             local InputDialog = require("ui/widget/inputdialog")
             local search_dialog
+            local function updateLiveSearch()
+                if search_dialog then
+                    doSearch(search_dialog:getInputText())
+                end
+            end
             search_dialog = InputDialog:new{
                 title = "Search actions",
                 input_hint = "Type to filter...",
+                edited_callback = updateLiveSearch,
                 buttons = {{
                     {
-                        text = "Cancel",
+                        text = "Close",
                         callback = function() UIManager:close(search_dialog) end,
                     },
                     {
-                        text = "Search",
-                        is_enter_default = true,
+                        text = "Clear",
                         callback = function()
-                            local query = search_dialog:getInputText()
-                            UIManager:close(search_dialog)
-                            doSearch(query)
+                            search_dialog:setInputText("", true, false)
+                            doSearch("")
                         end,
                     },
                 }},
             }
+            function search_dialog:onTap(_, ges)
+                if ges.pos:notIntersectWith(self.dialog_frame.dimen) then
+                    UIManager:close(self)
+                    return true
+                end
+                return InputDialog.onTap(self, nil, ges)
+            end
             UIManager:show(search_dialog)
             search_dialog:onShowKeyboard()
+            updateLiveSearch()
         end
         picker.onClose = function(self_menu)
             UIManager:close(picker)
