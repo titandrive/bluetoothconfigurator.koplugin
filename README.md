@@ -49,18 +49,26 @@ Bindings are saved automatically and persist across sessions.
 
 ## Supported Actions
 
-Actions are grouped into the following categories:
+Bluetooth Configurator uses KOReader's built-in dispatcher action list, so any action available elsewhere in KOReader (or added by another plugin, e.g. a registered Profile) is available here too, automatically, without needing a plugin update.
 
-- **Navigation** — Next/Previous Page, Next/Previous Chapter, First/Last Page, Go to Page, Skim Document, Random Page, Back, Previous/Next Location, Add/Clear Location History, Pin Page, Go to Pinned Page
-- **Bookmarks** — Toggle Bookmark, Bookmarks, Bookmark Browser, Bookmark Search, Previous/Next/First/Last/Latest Bookmark
-- **Display** — Toggle Night Mode, Increase/Decrease Font Size, Frontlight Dialog, Toggle Frontlight, Increase/Decrease Frontlight, Toggle Status Bar, Toggle Chapter Progress Bar, Full Screen Refresh
-- **Reader** — Table of Contents, Book Map, Page Browser, Show Menu, Menu Search, Show Bottom Menu, Fulltext Search, Last Fulltext Search Results, Book Status, Book Information, Book Description, Book Cover, Translate Page, Toggle Style Tweaks, Cycle Highlight Action/Style, Toggle Page Turn Direction, Save Book Metadata, Export Annotations, Screenshot
-- **Library** — File Browser, History, History Search, Favorites, Collections, Collections Search, Open Previous Document, Open Next/Previous File in Folder, Notebook File, Dictionary Lookup, Wikipedia Lookup
-- **Device** — Toggle Wi-Fi, Toggle Orientation, Invert Rotation, Rotate 90° CW/CCW, Sleep
+The action picker (tap an existing binding's action to open it) is organized as:
+
+- **Clear Selected Action(s)** — empties the binding without closing the picker
+- **Nothing** — explicitly binds no action
+- **Common Actions** — a curated shortlist of the actions people bind most often: Next/Previous Page, Next/Previous Chapter, Toggle Bookmark, Toggle Night Mode, Table of Contents, Back, Toggle Frontlight, Show Menu
+- **General / Device / Screen and lights / File browser / Reader** — KOReader's own dispatcher categories, covering everything else
+
+Tapping an action **replaces** whatever was previously bound to that key. Long-pressing an action **adds** it to the existing set instead, for the rare case of wanting more than one action to fire per button press. A checkmark shows which action (and which category it's in) is currently bound.
 
 ## Updates
 
 Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available you will be prompted to install it. KOReader will need to be restarted for the update to take effect.
+
+### ⚠ v2.0.0: action system rewrite
+
+Version 2.0.0 replaces the plugin's own hand-maintained action list with KOReader's built-in dispatcher system (see [Supported Actions](#supported-actions)). Existing bindings are migrated automatically the first time the plugin loads after updating — you should not need to redo anything.
+
+That said, this is a substantial rewrite of how actions are stored and resolved, and it's possible some existing bindings won't carry over cleanly on every device/KOReader version combination. **After updating, please check your bindings still trigger the actions you expect**, and open an issue if anything looks wrong.
 
 ## Validated Devices
 Although this plugin should work with any Android based E-Reader and bluetooth controller, it has been validated with the following devices:

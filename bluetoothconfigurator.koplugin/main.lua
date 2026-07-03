@@ -1,9 +1,8 @@
 local InputContainer = require("ui/widget/container/inputcontainer")
-local Event = require("ui/event")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
-local PLUGIN_VERSION = "1.3.2"
+local PLUGIN_VERSION = "2.0.0"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 
@@ -12,109 +11,169 @@ local BluetoothTurner = InputContainer:extend{
     is_doc_only = true,
 }
 
--- { id, label, event, arg (optional) }
--- arg=true means pass true; arg=number means pass that number
-local ACTIONS = {
-    { section = "Navigation" },
-    { id = "next_page",               label = "Next Page",                       event = "GotoViewRel",                    arg = 1    },
-    { id = "prev_page",               label = "Previous Page",                   event = "GotoViewRel",                    arg = -1   },
-    { id = "next_chapter",            label = "Next Chapter",                    event = "GotoNextChapter"                            },
-    { id = "prev_chapter",            label = "Previous Chapter",                event = "GotoPrevChapter"                            },
-    { id = "first_page",              label = "First Page",                      event = "GoToBeginning"                              },
-    { id = "last_page",               label = "Last Page",                       event = "GoToEnd"                                    },
-    { id = "go_to",                   label = "Go to Page",                      event = "ShowGotoDialog"                             },
-    { id = "skim",                    label = "Skim Document",                   event = "ShowSkimtoDialog"                           },
-    { id = "random_page",             label = "Random Page",                     event = "GoToRandomPage"                             },
-    { id = "back",                    label = "Back",                            event = "Back"                                       },
-    { id = "prev_location",           label = "Previous Location",               event = "GoBackLink",                     arg = true },
-    { id = "next_location",           label = "Next Location",                   event = "GoForwardLink",                  arg = true },
-    { id = "add_location",            label = "Add Location to History",         event = "AddCurrentLocationToStack",      arg = true },
-    { id = "clear_location_history",  label = "Clear Location History",          event = "ClearLocationStack",             arg = true },
-    { id = "pin_page",                label = "Pin Current Page",                event = "PinPage"                                    },
-    { id = "go_to_pinned",            label = "Go to Pinned Page",               event = "GoToPinnedPage"                             },
-    { section = "Bookmarks" },
-    { id = "toggle_bookmark",         label = "Toggle Bookmark",                 event = "ToggleBookmark"                             },
-    { id = "bookmarks",               label = "Bookmarks",                       event = "ShowBookmark"                               },
-    { id = "bookmark_browser",        label = "Bookmark Browser",                event = "ShowBookmarkBrowser"                        },
-    { id = "bookmark_search",         label = "Bookmark Search",                 event = "SearchBookmark"                             },
-    { id = "prev_bookmark",           label = "Previous Bookmark",               event = "GotoPreviousBookmarkFromPage"               },
-    { id = "next_bookmark",           label = "Next Bookmark",                   event = "GotoNextBookmarkFromPage"                   },
-    { id = "first_bookmark",          label = "First Bookmark",                  event = "GotoFirstBookmark"                          },
-    { id = "last_bookmark",           label = "Last Bookmark",                   event = "GotoLastBookmark"                           },
-    { id = "latest_bookmark",         label = "Latest Bookmark",                 event = "GoToLatestBookmark"                         },
-    { section = "Display" },
-    { id = "night_mode",              label = "Toggle Night Mode",               event = "ToggleNightMode"                            },
-    { id = "font_increase",           label = "Increase Font Size",              event = "IncreaseFontSize",               arg = 1    },
-    { id = "font_decrease",           label = "Decrease Font Size",              event = "DecreaseFontSize",               arg = 1    },
-    { id = "frontlight",              label = "Frontlight Dialog",               event = "ShowFlDialog"                               },
-    { id = "toggle_frontlight",       label = "Toggle Frontlight",               event = "ToggleFrontlight"                           },
-    { id = "increase_frontlight",     label = "Increase Frontlight",             event = "IncreaseFlIntensity",            arg = 1    },
-    { id = "decrease_frontlight",     label = "Decrease Frontlight",             event = "DecreaseFlIntensity",            arg = 1    },
-    { id = "toggle_status_bar",       label = "Toggle Status Bar",               event = "ToggleFooterMode"                           },
-    { id = "toggle_chapter_progress", label = "Toggle Chapter Progress Bar",     event = "ToggleChapterProgressBar"                   },
-    { id = "full_refresh",            label = "Full Screen Refresh",             event = "FullRefresh"                                },
-    { section = "Reader" },
-    { id = "toc",                     label = "Table of Contents",               event = "ShowToc"                                    },
-    { id = "book_map",                label = "Book Map",                        event = "ShowBookMap"                                },
-    { id = "page_browser",            label = "Page Browser",                    event = "ShowPageBrowser"                            },
-    { id = "show_menu",               label = "Show Menu",                       event = "ShowMenu"                                   },
-    { id = "menu_search",             label = "Menu Search",                     event = "MenuSearch"                                 },
-    { id = "show_config_menu",        label = "Show Bottom Menu",                event = "ShowConfigMenu"                             },
-    { id = "fulltext_search",         label = "Fulltext Search",                 event = "ShowFulltextSearchInput"                    },
-    { id = "fulltext_search_results", label = "Last Fulltext Search Results",    event = "ShowFindAllResults"                         },
-    { id = "book_status",             label = "Book Status",                     event = "ShowBookStatus"                             },
-    { id = "book_info",               label = "Book Information",                event = "ShowBookInfo"                               },
-    { id = "book_description",        label = "Book Description",                event = "ShowBookDescription"                        },
-    { id = "book_cover",              label = "Book Cover",                      event = "ShowBookCover"                              },
-    { id = "translate_page",          label = "Translate Page",                  event = "TranslateCurrentPage"                       },
-    { id = "toggle_style_tweaks",     label = "Toggle Style Tweaks",             event = "ToggleStyleTweaks"                          },
-    { id = "cycle_highlight_action",  label = "Cycle Highlight Action",          event = "CycleHighlightAction"                       },
-    { id = "cycle_highlight_style",   label = "Cycle Highlight Style",           event = "CycleHighlightStyle"                        },
-    { id = "toggle_page_turn_dir",    label = "Toggle Page Turn Direction",      event = "ToggleReadingOrder"                         },
-    { id = "flush_settings",          label = "Save Book Metadata",              event = "FlushSettings",                  arg = true },
-    { id = "export_annotations",      label = "Export Annotations",              event = "ExportAnnotations"                          },
-    { id = "screenshot",              label = "Screenshot",                      event = "Screenshot"                                 },
-    { section = "Library" },
-    { id = "filemanager",             label = "File Browser",                    event = "Home"                                       },
-    { id = "history",                 label = "History",                         event = "ShowHist"                                   },
-    { id = "history_search",          label = "History Search",                  event = "SearchHistory"                              },
-    { id = "favorites",               label = "Favorites",                       event = "ShowColl"                                   },
-    { id = "collections",             label = "Collections",                     event = "ShowCollList"                               },
-    { id = "collections_search",      label = "Collections Search",              event = "ShowCollectionsSearchDialog"                },
-    { id = "open_previous",           label = "Open Previous Document",          event = "OpenLastDoc"                                },
-    { id = "open_next_in_folder",     label = "Open Next File in Folder",        event = "OpenNextOrPreviousFileInFolder"             },
-    { id = "open_prev_in_folder",     label = "Open Previous File in Folder",    event = "OpenNextOrPreviousFileInFolder", arg = true },
-    { id = "notebook_file",           label = "Notebook File",                   event = "ShowNotebookFile"                           },
-    { id = "dictionary_lookup",       label = "Dictionary Lookup",               event = "ShowDictionaryLookup"                       },
-    { id = "wikipedia_lookup",        label = "Wikipedia Lookup",                event = "ShowWikipediaLookup"                        },
-    { section = "Device" },
-    { id = "wifi_toggle",             label = "Toggle Wi-Fi",                    event = "ToggleWifi"                                 },
-    { id = "toggle_rotation",         label = "Toggle Orientation",              event = "SwapRotation"                               },
-    { id = "invert_rotation",         label = "Invert Rotation",                 event = "InvertRotation"                             },
-    { id = "rotate_cw",               label = "Rotate 90° CW",                   event = "IterateRotation"                            },
-    { id = "rotate_ccw",              label = "Rotate 90° CCW",                  event = "IterateRotation",                arg = true },
-    { id = "suspend",                 label = "Sleep",                           event = "RequestSuspend"                             },
-    { id = "none",                    label = "None"                                                                                  },
-}
-
-local ACTIONS_BY_ID = {}
-for _, a in ipairs(ACTIONS) do
-    if a.id then ACTIONS_BY_ID[a.id] = a end
+local Dispatcher
+local function getDispatcher()
+    if not Dispatcher then
+        Dispatcher = require("dispatcher")
+    end
+    return Dispatcher
 end
 
-local function executeAction(action_id, ui)
-    local action = ACTIONS_BY_ID[action_id]
-    if not action or not action.event then return end
-    local ev = action.arg ~= nil
-        and Event:new(action.event, action.arg)
-        or  Event:new(action.event)
-    UIManager:broadcastEvent(ev)
+local LEGACY_DISPATCHER_ACTIONS = {
+    next_page               = { page_jmp = 1 },
+    prev_page               = { page_jmp = -1 },
+    next_chapter            = { next_chapter = true },
+    prev_chapter            = { prev_chapter = true },
+    first_page              = { first_page = true },
+    last_page               = { last_page = true },
+    go_to                   = { go_to = true },
+    skim                    = { skim = true },
+    random_page             = { random_page = true },
+    back                    = { back = true },
+    prev_location           = { previous_location = true },
+    next_location           = { next_location = true },
+    add_location            = { add_location_to_history = true },
+    clear_location_history  = { clear_location_history = true },
+    pin_page                = { pin_current_page = true },
+    go_to_pinned            = { go_to_pinned_page = true },
+    toggle_bookmark         = { toggle_bookmark = true },
+    bookmarks               = { bookmarks = true },
+    bookmark_browser        = { bookmark_browser = true },
+    bookmark_search         = { bookmark_search = true },
+    prev_bookmark           = { prev_bookmark = true },
+    next_bookmark           = { next_bookmark = true },
+    first_bookmark          = { first_bookmark = true },
+    last_bookmark           = { last_bookmark = true },
+    latest_bookmark         = { latest_bookmark = true },
+    night_mode              = { night_mode = true },
+    font_increase           = { increase_font = 1 },
+    font_decrease           = { decrease_font = 1 },
+    frontlight              = { show_frontlight_dialog = true },
+    toggle_frontlight       = { toggle_frontlight = true },
+    increase_frontlight     = { increase_frontlight = 1 },
+    decrease_frontlight     = { decrease_frontlight = 1 },
+    toggle_status_bar       = { toggle_status_bar = true },
+    toggle_chapter_progress = { toggle_chapter_progress_bar = true },
+    full_refresh            = { full_refresh = true },
+    toc                     = { toc = true },
+    book_map                = { book_map = true },
+    page_browser            = { page_browser = true },
+    show_menu               = { show_menu = true },
+    menu_search             = { menu_search = true },
+    show_config_menu        = { show_config_menu = true },
+    fulltext_search         = { fulltext_search = true },
+    fulltext_search_results = { fulltext_search_findall_results = true },
+    book_status             = { book_status = true },
+    book_info               = { book_info = true },
+    book_description        = { book_description = true },
+    book_cover              = { book_cover = true },
+    translate_page          = { translate_page = true },
+    toggle_style_tweaks     = { toggle_style_tweaks = true },
+    cycle_highlight_action  = { cycle_highlight_action = true },
+    cycle_highlight_style   = { cycle_highlight_style = true },
+    toggle_page_turn_dir    = { toggle_inverse_reading_order = true },
+    flush_settings          = { flush_settings = true },
+    export_annotations      = { export_annotations = true },
+    screenshot              = { screenshot = true },
+    filemanager             = { filemanager = true },
+    history                 = { history = true },
+    history_search          = { history_search = true },
+    favorites               = { favorites = true },
+    collections             = { collections = true },
+    collections_search      = { collections_search = true },
+    open_previous           = { open_previous_document = true },
+    open_next_in_folder     = { open_next_document_in_folder = true },
+    open_prev_in_folder     = { open_previous_document_in_folder = true },
+    notebook_file           = { notebook_file = true },
+    dictionary_lookup       = { dictionary_lookup = true },
+    wikipedia_lookup        = { wikipedia_lookup = true },
+    wifi_toggle             = { toggle_wifi = true },
+    toggle_rotation         = { toggle_rotation = true },
+    invert_rotation         = { invert_rotation = true },
+    rotate_cw               = { iterate_rotation = true },
+    rotate_ccw              = { iterate_rotation_ccw = true },
+    suspend                 = { suspend = true },
+    none                    = {},
+}
+
+local function copyTable(t)
+    local copy = {}
+    for k, v in pairs(t or {}) do
+        copy[k] = type(v) == "table" and copyTable(v) or v
+    end
+    return copy
+end
+
+local function legacyActionToDispatcher(action_id)
+    return copyTable(LEGACY_DISPATCHER_ACTIONS[action_id] or {})
+end
+
+local function normalizeBinding(binding)
+    local changed = false
+    if not binding.actions then
+        binding.actions = legacyActionToDispatcher(binding.action)
+        changed = true
+    end
+    if binding.action ~= nil then
+        binding.action = nil
+        changed = true
+    end
+    return changed
+end
+
+local function executeBinding(binding)
+    if binding.actions then
+        local dispatcher = getDispatcher()
+        dispatcher:init()
+        dispatcher:execute(binding.actions)
+    end
+end
+
+-- Curated shortcuts for the actions a page-turner button is most likely to be
+-- bound to, surfaced as their own category at the top of the action picker
+-- instead of making people hunt through General/Device/Reader for them.
+local COMMON_ACTIONS = {
+    { text = "Next Page",           actions = { page_jmp = 1 } },
+    { text = "Previous Page",       actions = { page_jmp = -1 } },
+    { text = "Next Chapter",        actions = { next_chapter = true } },
+    { text = "Previous Chapter",    actions = { prev_chapter = true } },
+    { text = "Toggle Bookmark",     actions = { toggle_bookmark = true } },
+    { text = "Toggle Night Mode",   actions = { night_mode = true } },
+    { text = "Table of Contents",   actions = { toc = true } },
+    { text = "Back",                actions = { back = true } },
+    { text = "Toggle Frontlight",   actions = { toggle_frontlight = true } },
+    { text = "Show Menu",           actions = { show_menu = true } },
+}
+
+local function sameActions(a, b)
+    if a == nil or b == nil then return a == b end
+    for k, v in pairs(a) do
+        if b[k] ~= v then return false end
+    end
+    for k, v in pairs(b) do
+        if a[k] ~= v then return false end
+    end
+    return true
+end
+
+local function actionLabel(binding)
+    if binding.actions then
+        for _, common in ipairs(COMMON_ACTIONS) do
+            if sameActions(binding.actions, common.actions) then
+                return common.text
+            end
+        end
+        local dispatcher = getDispatcher()
+        dispatcher:init()
+        return dispatcher:menuTextFunc(binding.actions)
+    end
+    return "Nothing"
 end
 
 local DEFAULT_BINDINGS = {
-    { keycode = 85, action = "next_page"  },
-    { keycode = 87, action = "prev_page"  },
-    { keycode = 88, action = "night_mode" },
+    { keycode = 85, actions = { page_jmp = 1 } },
+    { keycode = 87, actions = { page_jmp = -1 } },
+    { keycode = 88, actions = { night_mode = true } },
 }
 
 local SLOT = "BTurner_"
@@ -130,15 +189,25 @@ local function loadBindings()
                     cleaned[#cleaned + 1] = b
                 end
             end
-            G_reader_settings:saveSetting("bt_configurator_bindings", cleaned)
             G_reader_settings:saveSetting("bt_configurator_dpad_cleaned", true)
+            for _, b in ipairs(cleaned) do
+                normalizeBinding(b)
+            end
+            G_reader_settings:saveSetting("bt_configurator_bindings", cleaned)
             return cleaned
+        end
+        local changed = false
+        for _, b in ipairs(saved) do
+            changed = normalizeBinding(b) or changed
+        end
+        if changed then
+            G_reader_settings:saveSetting("bt_configurator_bindings", saved)
         end
         return saved
     end
     local copy = {}
     for _, b in ipairs(DEFAULT_BINDINGS) do
-        copy[#copy + 1] = { keycode = b.keycode, action = b.action }
+        copy[#copy + 1] = { keycode = b.keycode, actions = copyTable(b.actions) }
     end
     return copy
 end
@@ -171,7 +240,7 @@ for i = 1, 16 do
     local slot = i
     BluetoothTurner["on" .. SLOT .. slot] = function(self)
         local binding = self._bindings[slot]
-        if binding then executeAction(binding.action, self.ui) end
+        if binding then executeBinding(binding) end
         return true
     end
 end
@@ -717,59 +786,111 @@ function BluetoothTurner:showSettings()
     end
 
     local function showActionPicker(row_index)
-        local picker
-        local cat_items = {}
+        local dispatcher = getDispatcher()
+        dispatcher:init()
+        local picker_state = { updated = false }
+        local binding = self._bindings[row_index]
+        binding.actions = binding.actions or legacyActionToDispatcher(binding.action)
+        binding.action = nil
+
+        local item_table = {}
+        dispatcher:addSubMenu(picker_state, item_table, binding, "actions")
+
+        -- Only one action fires per button press, so drop the format-specific
+        -- (epub vs pdf) categories and the multi-action/QuickMenu management
+        -- rows dispatcher appends after the categories -- neither applies here.
+        local function isExcludedCategory(text)
+            return text ~= nil
+                and (text:find("Reflowable documents", 1, true) ~= nil
+                    or text:find("Fixed layout documents", 1, true) ~= nil)
+        end
+        local filtered_item_table = {}
+        for i, entry in ipairs(item_table) do
+            if (i == 1 or entry.sub_item_table) and not isExcludedCategory(entry.text) then
+                filtered_item_table[#filtered_item_table + 1] = entry
+            end
+        end
+        item_table = filtered_item_table
+
+        table.insert(item_table, 1, {
+            text = "Clear Selected Action(s)",
+            keep_menu_open = true,
+            callback = function(touchmenu_instance)
+                binding.actions = {}
+                picker_state.updated = true
+                if touchmenu_instance then touchmenu_instance:updateItems() end
+            end,
+        })
+
+        -- One-tap shortcuts for the actions people are most likely to bind a
+        -- button to, so they don't have to hunt through General/Device/Reader
+        -- (also covers page turning, which dispatcher only exposes as a single
+        -- "Turn pages" action with a numeric arg requiring a value picker).
+        local function makeCommonActionItem(common)
+            return {
+                text = common.text,
+                checked_func = function()
+                    return sameActions(binding.actions, common.actions)
+                end,
+                callback = function(touchmenu_instance)
+                    binding.actions = copyTable(common.actions)
+                    picker_state.updated = true
+                    if touchmenu_instance then touchmenu_instance:updateItems() end
+                end,
+            }
+        end
+        local common_sub_items = {}
+        for _, common in ipairs(COMMON_ACTIONS) do
+            common_sub_items[#common_sub_items + 1] = makeCommonActionItem(common)
+        end
+        table.insert(item_table, 3, {
+            text = "Common Actions",
+            sub_item_table = common_sub_items,
+        })
+
+        -- Next/Previous Page also get a spot inside Reader, since that's where
+        -- people familiar with dispatcher's own categories would look for them.
+        for _, entry in ipairs(item_table) do
+            if entry.text == "Reader" and entry.sub_item_table then
+                table.insert(entry.sub_item_table, 1, makeCommonActionItem(COMMON_ACTIONS[2]))
+                table.insert(entry.sub_item_table, 1, makeCommonActionItem(COMMON_ACTIONS[1]))
+                break
+            end
+        end
+
+        -- The plain Menu widget (unlike TouchMenu) doesn't render checked_func
+        -- at all, so nothing marked which category -- or which action inside
+        -- it -- is currently selected. Surface it as a checkmark on the right.
+        local function addCheckmark(entry)
+            if entry.checked_func and entry.mandatory == nil and entry.mandatory_func == nil then
+                entry.mandatory_func = function()
+                    return entry.checked_func() and "✓" or ""
+                end
+            end
+        end
+
         local flat_items = {}
-        local current_section = nil
-        local sub_items = nil
-        local function finalizeSection()
-            if current_section and sub_items then
-                table.insert(sub_items, 1, {
-                    text = "← Back",
-                    callback = function()
-                        if #picker.item_table_stack > 0 then
-                            local parent = table.remove(picker.item_table_stack)
-                            picker:switchItemTable(parent.title, parent)
-                        end
-                    end,
-                })
-                cat_items[#cat_items + 1] = {
-                    text = current_section,
-                    sub_item_table = sub_items,
-                }
+        for _, entry in ipairs(item_table) do
+            addCheckmark(entry)
+            if entry.sub_item_table then
+                for _, sub in ipairs(entry.sub_item_table) do
+                    addCheckmark(sub)
+                    flat_items[#flat_items + 1] = sub
+                end
             end
         end
-        for _, action in ipairs(ACTIONS) do
-            if action.section then
-                finalizeSection()
-                current_section = action.section
-                sub_items = {}
-            elseif current_section then
-                local id = action.id
-                local item = {
-                    text = action.label,
-                    callback = function()
-                        UIManager:close(picker)
-                        self._bindings[row_index].action = id
-                        saveBindings(self._bindings)
-                        applyBindings(self)
-                        self:showSettings()
-                    end,
-                }
-                sub_items[#sub_items + 1] = item
-                flat_items[#flat_items + 1] = item
-            end
-        end
-        finalizeSection()
+
+        local picker
         local function doSearch(query)
             query = query and query:lower() or ""
             if query == "" then
-                picker:switchItemTable("Select Action", cat_items)
+                picker:switchItemTable("Select Action", item_table)
                 return
             end
             local results = {}
             for _, item in ipairs(flat_items) do
-                if item.text:lower():find(query, 1, true) then
+                local text = item.text or (item.text_func and item.text_func()) or ""
+                if tostring(text):lower():find(query, 1, true) then
                     results[#results + 1] = item
                 end
             end
@@ -782,9 +903,10 @@ function BluetoothTurner:showSettings()
             })
             picker:switchItemTable('Search: "' .. query .. '"', results)
         end
+
         picker = Menu:new{
             title = "Select Action",
-            item_table = cat_items,
+            item_table = item_table,
             width = screen_w,
             height = screen_h,
             is_popout = false,
@@ -792,6 +914,58 @@ function BluetoothTurner:showSettings()
             covers_fullscreen = true,
             title_bar_left_icon = "appbar.search",
         }
+        -- Dispatcher's item callbacks are written for TouchMenu, which invokes
+        -- callback(touchmenu_instance) and expands sub_item_table_func for
+        -- variant pickers (e.g. "Set highlight action"). The plain Menu widget
+        -- calls item.callback() with no argument and ignores sub_item_table_func
+        -- entirely, so selecting most actions silently did nothing. Mirror
+        -- TouchMenu:onMenuSelect's logic here instead.
+        picker.onMenuSelect = function(self_menu, item)
+            local sub_item_table = item.sub_item_table_func and item.sub_item_table_func() or item.sub_item_table
+            if sub_item_table then
+                for _, sub in ipairs(sub_item_table) do
+                    addCheckmark(sub)
+                end
+                self_menu.item_table.title = self_menu.title
+                table.insert(self_menu.item_table_stack, self_menu.item_table)
+                self_menu:switchItemTable(item.text, sub_item_table)
+                return true
+            end
+            if item.callback then
+                -- Dispatcher's own menus (Hotkeys/Gestures/Profiles) build a set
+                -- of actions and require manually backing out to confirm. This
+                -- plugin fires one action per button press, so a tap replaces
+                -- whatever was previously bound (long-press adds instead, see
+                -- onMenuHold below) and closes/saves as soon as a plain
+                -- toggle/selection is made. If the callback opened its own
+                -- dialog instead (e.g. a numeric value picker for "Turn
+                -- pages"), the window stack grows -- leave this menu open
+                -- underneath so the user can still back out after finishing there.
+                if not item.keep_menu_open then
+                    binding.actions = {}
+                end
+                local stack_depth_before = #UIManager._window_stack
+                item.callback(self_menu)
+                if item.keep_menu_open or #UIManager._window_stack > stack_depth_before then
+                    if item.checked_func or item.keep_menu_open then
+                        self_menu:updateItems()
+                    end
+                else
+                    self_menu:onClose()
+                end
+            end
+            return true
+        end
+        picker.onMenuHold = function(self_menu, item)
+            -- Long-press adds this action to the existing set instead of
+            -- replacing it, for the rare case of wanting more than one
+            -- action on a single button press.
+            if item.callback and not (item.sub_item_table_func or item.sub_item_table) then
+                item.callback(self_menu)
+                self_menu:updateItems()
+            end
+            return true
+        end
         picker.onLeftButtonTap = function()
             local InputDialog = require("ui/widget/inputdialog")
             local search_dialog
@@ -819,6 +993,10 @@ function BluetoothTurner:showSettings()
         end
         picker.onClose = function(self_menu)
             UIManager:close(picker)
+            if picker_state.updated then
+                saveBindings(self._bindings)
+                applyBindings(self)
+            end
             self:showSettings()
             return true
         end
@@ -851,7 +1029,6 @@ function BluetoothTurner:showSettings()
     local buttons = {}
     for i, binding in ipairs(self._bindings) do
         local idx = i
-        local action_entry = ACTIONS_BY_ID[binding.action]
         buttons[#buttons + 1] = {
             {
                 text = keycodeLabel(binding.keycode),
@@ -862,7 +1039,7 @@ function BluetoothTurner:showSettings()
                 end,
             },
             {
-                text = action_entry and action_entry.label or "?",
+                text = actionLabel(binding),
                 width = col_act,
                 callback = function()
                     UIManager:close(dialog)
@@ -886,7 +1063,7 @@ function BluetoothTurner:showSettings()
         {
             text = "+ Add Binding",
             callback = function()
-                self._bindings[#self._bindings + 1] = { keycode = nil, action = "none" }
+                self._bindings[#self._bindings + 1] = { keycode = nil, actions = {} }
                 saveBindings(self._bindings)
                 refresh()
             end,
