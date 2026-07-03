@@ -58,11 +58,11 @@ The action picker (tap an existing binding's action to open it) is organized as:
 - **Common Actions** — a curated shortlist of the actions people bind most often: Next/Previous Page, Next/Previous Chapter, Toggle Bookmark, Toggle Night Mode, Table of Contents, Back, Toggle Frontlight, Show Menu
 - **General / Device / Screen and lights / File browser / Reader** — KOReader's own dispatcher categories, covering everything else
 
-Tapping an action **replaces** whatever was previously bound to that key. Long-pressing an action **adds** it to the existing set instead, for the rare case of wanting more than one action to fire per button press. A checkmark shows which action (and which category it's in) is currently bound.
+Tapping an action **replaces** whatever was previously bound to that key. Long-pressing an action **toggles** it in the current set: unselected actions are added, and selected actions are removed. A checkmark shows which action (and which category it's in) is currently bound.
 
 ## Updates
 
-Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available you will be prompted to install it. KOReader will need to be restarted for the update to take effect.
+Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates / Changelog**. If an update is available, the plugin shows the release notes before installing. After you choose **Update and restart**, KOReader restarts automatically.
 
 ### ⚠ v2.0.0: action system rewrite
 

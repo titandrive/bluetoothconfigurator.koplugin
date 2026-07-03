@@ -320,62 +320,16 @@ function BluetoothTurner:onResume()
     self:backgroundUpdateCheck()
 end
 
-local _update_last_check = nil
-local _update_in_flight  = false
-local UPDATE_INTERVAL    = 3600
+local function bluetooth_updater()
+    return require("bluetooth_updater")
+end
 
 function BluetoothTurner:backgroundUpdateCheck()
     if G_reader_settings:isFalse("bt_configurator_auto_update") then return end
-    if _update_in_flight then return end
-    local now = os.time()
-    if _update_last_check and (now - _update_last_check) < UPDATE_INTERVAL then return end
-
-    local ok_nm, NetworkMgr = pcall(require, "ui/network/manager")
-    if not ok_nm or not NetworkMgr:isWifiOn() then return end
-
-    _update_in_flight  = true
-    _update_last_check = now
-
-    UIManager:scheduleIn(0.1, function()
-        local ver = nil
-        pcall(function()
-            local ok_req, http, ltn12, socket, socketutil = pcall(function()
-                return require("socket/http"),
-                       require("ltn12"),
-                       require("socket"),
-                       require("socketutil")
-            end)
-            if not ok_req then return end
-            local body = {}
-            local ok_fetch, code = pcall(function()
-                socketutil:set_timeout(socketutil.LARGE_BLOCK_TIMEOUT, socketutil.LARGE_TOTAL_TIMEOUT)
-                local c = socket.skip(1, http.request({
-                    url      = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases/latest",
-                    method   = "GET",
-                    headers  = {
-                        ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION,
-                        ["Accept"]     = "application/vnd.github.v3+json",
-                    },
-                    sink     = ltn12.sink.table(body),
-                    redirect = true,
-                }))
-                socketutil:reset_timeout()
-                return c
-            end)
-            if not ok_fetch then pcall(function() socketutil:reset_timeout() end) return end
-            if code ~= 200 then return end
-            local ok_json, json = pcall(require, "json")
-            if not ok_json then return end
-            local ok_parse, data = pcall(json.decode, table.concat(body))
-            if not ok_parse or not data or not data.tag_name then return end
-            ver = data.tag_name:match("^v?(.+)$") or data.tag_name
-        end)
-        _update_in_flight = false
-        if ver and self:isNewerVersion(ver, PLUGIN_VERSION) then
-            local Notification = require("ui/widget/notification")
-            Notification:notify("Bluetooth Configurator: v" .. ver .. " available",
-                Notification.SOURCE_ALWAYS_SHOW)
-        end
+    bluetooth_updater().checkBackground(function(ver)
+        local Notification = require("ui/widget/notification")
+        Notification:notify("Bluetooth Configurator update available: v" .. ver,
+            Notification.SOURCE_ALWAYS_SHOW)
     end)
 end
 
@@ -418,8 +372,8 @@ function BluetoothTurner:showInfoPanel()
         width = sw - 2 * Size.padding.button,
         buttons = {
             {{ text = "Version: " .. PLUGIN_VERSION, callback = function() end }},
-            {{ text = "Check for Updates", callback = function() self:checkForUpdates() end }},
-            {{ text = "Auto-update: " .. (G_reader_settings:isFalse("bt_configurator_auto_update") and "Off" or "On"),
+            {{ text = "Check for Updates / Changelog", callback = function() self:checkForUpdates() end }},
+            {{ text = "Notify on wake: " .. (G_reader_settings:isFalse("bt_configurator_auto_update") and "Off" or "On"),
                callback = function()
                 if G_reader_settings:isFalse("bt_configurator_auto_update") then
                     G_reader_settings:delSetting("bt_configurator_auto_update")
@@ -429,7 +383,6 @@ function BluetoothTurner:showInfoPanel()
                 UIManager:close(panel)
                 self:showInfoPanel()
             end }},
-            {{ text = "Changelog",         callback = function() self:showChangelog() end }},
             {{ text = "GitHub Page",       callback = function()
                 local url = "https://github.com/" .. GITHUB_REPO
                 if Device:canOpenLink() then
@@ -486,307 +439,8 @@ function BluetoothTurner:showInfoPanel()
     UIManager:show(panel)
 end
 
-function BluetoothTurner:isNewerVersion(latest, current)
-    local function parse(v)
-        local a, b, c = v:match("^(%d+)%.(%d+)%.(%d+)")
-        return tonumber(a) or 0, tonumber(b) or 0, tonumber(c) or 0
-    end
-    local la, lb, lc = parse(latest)
-    local ca, cb, cc = parse(current)
-    if la ~= ca then return la > ca end
-    if lb ~= cb then return lb > cb end
-    return lc > cc
-end
-
-function BluetoothTurner:showChangelog()
-    local InfoMessage = require("ui/widget/infomessage")
-    local TitleBar = require("ui/widget/titlebar")
-    local ButtonTable = require("ui/widget/buttontable")
-    local CenterContainer = require("ui/widget/container/centercontainer")
-    local FrameContainer = require("ui/widget/container/framecontainer")
-    local MovableContainer = require("ui/widget/container/movablecontainer")
-    local ScrollableContainer = require("ui/widget/container/scrollablecontainer")
-    local VerticalGroup = require("ui/widget/verticalgroup")
-    local InputContainer = require("ui/widget/container/inputcontainer")
-    local GestureRange = require("ui/gesturerange")
-    local Blitbuffer = require("ffi/blitbuffer")
-    local Size = require("ui/size")
-    local Geom = require("ui/geometry")
-
-    local fetching = InfoMessage:new{ text = "Fetching changelog..." }
-    UIManager:show(fetching)
-    UIManager:forceRePaint()
-
-    local ok_https, https = pcall(require, "ssl.https")
-    if not ok_https then
-        UIManager:close(fetching)
-        UIManager:show(InfoMessage:new{ text = "Changelog requires network support." })
-        return
-    end
-    local ltn12 = require("ltn12")
-
-    local sink = {}
-    local _, status = https.request{
-        url = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases",
-        method = "GET",
-        headers = {
-            ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION,
-            ["Accept"] = "application/vnd.github+json",
-        },
-        sink = ltn12.sink.table(sink),
-    }
-    UIManager:close(fetching)
-
-    if status ~= 200 then
-        UIManager:show(InfoMessage:new{ text = "Could not fetch changelog. (HTTP " .. tostring(status) .. ")" })
-        return
-    end
-
-    local ok_json, json = pcall(require, "json")
-    if not ok_json then
-        UIManager:show(InfoMessage:new{ text = "Could not parse changelog response." })
-        return
-    end
-    local ok_parse, data = pcall(json.decode, table.concat(sink))
-    if not ok_parse or not data or not data[1] then
-        UIManager:show(InfoMessage:new{ text = "Could not parse changelog response." })
-        return
-    end
-
-    local screen_w = Device.screen:getWidth()
-    local screen_h = Device.screen:getHeight()
-    local sw = screen_w - 2 * Size.border.window
-    local sh = screen_h - 2 * Size.border.window
-
-    local dialog
-
-    local function showReleaseNotes(release)
-        local Menu = require("ui/widget/menu")
-        local body = (release.body or "No release notes available."):gsub("\r\n", "\n"):gsub("\r", "\n")
-
-        local items = {}
-        for line in (body .. "\n"):gmatch("([^\n]*)\n") do
-            table.insert(items, { text = line ~= "" and line or " ", callback = function() end })
-        end
-
-        local notes_menu = Menu:new{
-            title = (release.tag_name or "Release") .. " Release Notes",
-            item_table = items,
-            width = screen_w,
-            height = screen_h,
-            is_popout = false,
-            is_borderless = true,
-            covers_fullscreen = true,
-        }
-        notes_menu.onMenuSelect = function() end
-        UIManager:show(notes_menu)
-    end
-
-    local buttons = {}
-    for i, release in ipairs(data) do
-        if i > 5 then break end
-        local tag = release.tag_name or "Unknown"
-        local ver = tag:match("^v?(.+)$") or tag
-        local tags = {}
-        if i == 1 then table.insert(tags, "Latest") end
-        if ver == PLUGIN_VERSION then table.insert(tags, "Installed") end
-        local label = tag .. (#tags > 0 and "  (" .. table.concat(tags, " \xC2\xB7 ") .. ")" or "")
-        local rel = release
-        table.insert(buttons, {{ text = label, align = "left", callback = function()
-            UIManager:close(dialog)
-            showReleaseNotes(rel)
-        end }})
-    end
-    table.insert(buttons, {{ text = "Close", callback = function() UIManager:close(dialog) end }})
-
-    local title_bar = TitleBar:new{
-        width = sw - 2 * Size.padding.button,
-        align = "center",
-        with_bottom_line = true,
-        title = "Changelog",
-        subtitle = "Installed: v" .. PLUGIN_VERSION,
-    }
-
-    local button_table = ButtonTable:new{
-        width = sw - 2 * Size.padding.button,
-        buttons = buttons,
-        zero_sep = false,
-    }
-
-    local title_h = title_bar:getSize().h
-    local btn_h = button_table:getSize().h
-    local content
-    if btn_h > sh - title_h then
-        content = ScrollableContainer:new{
-            dimen = Geom:new{ w = sw - 2 * Size.padding.button, h = sh - title_h },
-            button_table,
-        }
-    else
-        content = button_table
-    end
-
-    local frame = FrameContainer:new{
-        radius = Size.radius.window,
-        padding = 0,
-        padding_top = 0,
-        padding_bottom = 0,
-        margin = 0,
-        bordersize = Size.border.window,
-        background = Blitbuffer.COLOR_WHITE,
-        VerticalGroup:new{
-            align = "left",
-            title_bar,
-            content,
-        },
-    }
-
-    local movable = MovableContainer:new{ frame }
-
-    dialog = InputContainer:new{
-        ges_events = {
-            TapClose = {
-                GestureRange:new{
-                    ges = "tap",
-                    range = Geom:new{ x = 0, y = 0, w = screen_w, h = sh },
-                }
-            }
-        },
-        CenterContainer:new{
-            dimen = Geom:new{ x = 0, y = 0, w = screen_w, h = sh },
-            movable,
-        }
-    }
-
-    function dialog:onTapClose(_, ges)
-        if ges.pos:notIntersectWith(movable.dimen) then
-            UIManager:close(self)
-        end
-        return true
-    end
-
-    UIManager:show(dialog)
-end
-
 function BluetoothTurner:checkForUpdates()
-    local InfoMessage = require("ui/widget/infomessage")
-    local ConfirmBox = require("ui/widget/confirmbox")
-
-    local checking = InfoMessage:new{ text = "Checking for updates..." }
-    UIManager:show(checking)
-    UIManager:forceRePaint()
-
-    local ok_https, https = pcall(require, "ssl.https")
-    if not ok_https then
-        UIManager:close(checking)
-        UIManager:show(InfoMessage:new{ text = "Update check requires network support." })
-        return
-    end
-    local ltn12 = require("ltn12")
-
-    local sink = {}
-    local _, status = https.request{
-        url = "https://api.github.com/repos/" .. GITHUB_REPO .. "/releases",
-        method = "GET",
-        headers = {
-            ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION,
-            ["Accept"] = "application/vnd.github+json",
-        },
-        sink = ltn12.sink.table(sink),
-    }
-    UIManager:close(checking)
-
-    if status ~= 200 then
-        UIManager:show(InfoMessage:new{ text = "Could not reach update server. (HTTP " .. tostring(status) .. ")" })
-        return
-    end
-
-    local ok_json, json = pcall(require, "json")
-    if not ok_json then
-        UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
-        return
-    end
-    local ok_parse, data = pcall(json.decode, table.concat(sink))
-    if not ok_parse or not data or not data[1] or not data[1].tag_name then
-        UIManager:show(InfoMessage:new{ text = "Could not parse update response." })
-        return
-    end
-
-    local latest_tag = data[1].tag_name
-    local latest_ver = latest_tag:match("^v?(.+)$") or latest_tag
-
-    if not self:isNewerVersion(latest_ver, PLUGIN_VERSION) then
-        UIManager:show(InfoMessage:new{
-            text = "You are up to date (v" .. PLUGIN_VERSION .. ").",
-            timeout = 3,
-        })
-        return
-    end
-
-    local confirm
-    confirm = ConfirmBox:new{
-        text = "Version " .. latest_ver .. " is available (you have v" .. PLUGIN_VERSION .. "). Install now?",
-        ok_text = "Install",
-        cancel_text = "Not Now",
-        ok_callback = function()
-            UIManager:close(confirm)
-            self:installUpdate(latest_tag)
-        end,
-    }
-    UIManager:show(confirm)
-end
-
-function BluetoothTurner:installUpdate(tag)
-    local InfoMessage = require("ui/widget/infomessage")
-
-    local msg = InfoMessage:new{ text = "Downloading update..." }
-    UIManager:show(msg)
-    UIManager:forceRePaint()
-
-    local ok_https, https = pcall(require, "ssl.https")
-    if not ok_https then
-        UIManager:close(msg)
-        UIManager:show(InfoMessage:new{ text = "Update failed: network support unavailable." })
-        return
-    end
-    local ok_ltn12, ltn12 = pcall(require, "ltn12")
-    if not ok_ltn12 then
-        UIManager:close(msg)
-        UIManager:show(InfoMessage:new{ text = "Update failed: ltn12 unavailable." })
-        return
-    end
-
-    local base = "https://raw.githubusercontent.com/" .. GITHUB_REPO .. "/" .. tag .. "/bluetoothconfigurator.koplugin/"
-    local files = { "_meta.lua", "main.lua", "input_android_patched.lua" }
-
-    for _, fname in ipairs(files) do
-        local f = io.open(self.path .. "/" .. fname, "wb")
-        if not f then
-            UIManager:close(msg)
-            UIManager:show(InfoMessage:new{ text = "Update failed: could not write " .. fname })
-            return
-        end
-        local ok_req, fstatus = pcall(function()
-            local _, s = https.request{
-                url = base .. fname,
-                method = "GET",
-                headers = { ["User-Agent"] = "KOReader-BluetoothConfigurator/" .. PLUGIN_VERSION },
-                sink = ltn12.sink.file(f),
-            }
-            return s
-        end)
-        if not ok_req then pcall(function() f:close() end) end
-        if not ok_req or fstatus ~= 200 then
-            UIManager:close(msg)
-            UIManager:show(InfoMessage:new{ text = "Update failed: could not download " .. fname })
-            return
-        end
-    end
-
-    UIManager:close(msg)
-    local InfoMessage = require("ui/widget/infomessage")
-    UIManager:show(InfoMessage:new{
-        text = "Update installed. Please restart KOReader to apply.",
-    })
+    bluetooth_updater().check()
 end
 
 function BluetoothTurner:showSettings()
