@@ -156,6 +156,14 @@ local function sameActions(a, b)
     return true
 end
 
+local function containsActions(actions, subset)
+    if actions == nil or subset == nil then return false end
+    for k, v in pairs(subset) do
+        if actions[k] ~= v then return false end
+    end
+    return true
+end
+
 local function actionLabel(binding)
     if binding.actions then
         for _, common in ipairs(COMMON_ACTIONS) do
@@ -792,9 +800,10 @@ function BluetoothTurner:showSettings()
         local binding = self._bindings[row_index]
         binding.actions = binding.actions or legacyActionToDispatcher(binding.action)
         binding.action = nil
+        local picker_binding = { actions = copyTable(binding.actions) }
 
         local item_table = {}
-        dispatcher:addSubMenu(picker_state, item_table, binding, "actions")
+        dispatcher:addSubMenu(picker_state, item_table, picker_binding, "actions")
 
         -- Only one action fires per button press, so drop the format-specific
         -- (epub vs pdf) categories and the multi-action/QuickMenu management
@@ -816,7 +825,7 @@ function BluetoothTurner:showSettings()
             text = "Clear Selected Action(s)",
             keep_menu_open = true,
             callback = function(touchmenu_instance)
-                binding.actions = {}
+                picker_binding.actions = {}
                 picker_state.updated = true
                 if touchmenu_instance then touchmenu_instance:updateItems() end
             end,
@@ -830,10 +839,21 @@ function BluetoothTurner:showSettings()
             return {
                 text = common.text,
                 checked_func = function()
-                    return sameActions(binding.actions, common.actions)
+                    return containsActions(picker_binding.actions, common.actions)
                 end,
                 callback = function(touchmenu_instance)
-                    binding.actions = copyTable(common.actions)
+                    picker_binding.actions = picker_binding.actions or {}
+                    for k, v in pairs(common.actions) do
+                        picker_binding.actions[k] = v
+                    end
+                    picker_state.updated = true
+                    if touchmenu_instance then touchmenu_instance:updateItems() end
+                end,
+                hold_callback = function(touchmenu_instance)
+                    picker_binding.actions = picker_binding.actions or {}
+                    for k, v in pairs(common.actions) do
+                        picker_binding.actions[k] = v
+                    end
                     picker_state.updated = true
                     if touchmenu_instance then touchmenu_instance:updateItems() end
                 end,
@@ -881,6 +901,21 @@ function BluetoothTurner:showSettings()
         end
 
         local picker
+        local function addBackItem(sub_item_table)
+            if sub_item_table[1] and sub_item_table[1].bt_configurator_back_item then return end
+            table.insert(sub_item_table, 1, {
+                text = "← Back",
+                keep_menu_open = true,
+                bt_configurator_back_item = true,
+                callback = function()
+                    if #picker.item_table_stack > 0 then
+                        local parent = table.remove(picker.item_table_stack)
+                        picker:switchItemTable(parent.title or "Select Action", parent)
+                    end
+                end,
+            })
+        end
+
         local function doSearch(query)
             query = query and query:lower() or ""
             if query == "" then
@@ -899,6 +934,7 @@ function BluetoothTurner:showSettings()
             end
             table.insert(results, 1, {
                 text = "← Back to categories",
+                keep_menu_open = true,
                 callback = function() doSearch("") end,
             })
             picker:switchItemTable('Search: "' .. query .. '"', results)
@@ -926,6 +962,7 @@ function BluetoothTurner:showSettings()
                 for _, sub in ipairs(sub_item_table) do
                     addCheckmark(sub)
                 end
+                addBackItem(sub_item_table)
                 self_menu.item_table.title = self_menu.title
                 table.insert(self_menu.item_table_stack, self_menu.item_table)
                 self_menu:switchItemTable(item.text, sub_item_table)
@@ -942,7 +979,7 @@ function BluetoothTurner:showSettings()
                 -- pages"), the window stack grows -- leave this menu open
                 -- underneath so the user can still back out after finishing there.
                 if not item.keep_menu_open then
-                    binding.actions = {}
+                    picker_binding.actions = {}
                 end
                 local stack_depth_before = #UIManager._window_stack
                 item.callback(self_menu)
@@ -994,6 +1031,7 @@ function BluetoothTurner:showSettings()
         picker.onClose = function(self_menu)
             UIManager:close(picker)
             if picker_state.updated then
+                binding.actions = copyTable(picker_binding.actions)
                 saveBindings(self._bindings)
                 applyBindings(self)
             end
