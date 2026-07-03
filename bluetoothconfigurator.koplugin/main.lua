@@ -2,7 +2,7 @@ local InputContainer = require("ui/widget/container/inputcontainer")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
-local PLUGIN_VERSION = "2.0.0"
+local PLUGIN_VERSION = "2.1.0"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 
@@ -372,8 +372,8 @@ function BluetoothTurner:showInfoPanel()
         width = sw - 2 * Size.padding.button,
         buttons = {
             {{ text = "Version: " .. PLUGIN_VERSION, callback = function() end }},
-            {{ text = "Check for Updates / Changelog", callback = function() self:checkForUpdates() end }},
-            {{ text = "Notify on wake: " .. (G_reader_settings:isFalse("bt_configurator_auto_update") and "Off" or "On"),
+            {{ text = "Check for Updates", callback = function() self:checkForUpdates() end }},
+            {{ text = "Check for updates on wake: " .. (G_reader_settings:isFalse("bt_configurator_auto_update") and "Off" or "On"),
                callback = function()
                 if G_reader_settings:isFalse("bt_configurator_auto_update") then
                     G_reader_settings:delSetting("bt_configurator_auto_update")
