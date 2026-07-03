@@ -8,7 +8,7 @@ local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 local BluetoothTurner = InputContainer:extend{
     name = "bluetoothconfigurator",
-    is_doc_only = true,
+    is_doc_only = false,
 }
 
 local Dispatcher
@@ -132,7 +132,7 @@ end
 -- Curated shortcuts for the actions a page-turner button is most likely to be
 -- bound to, surfaced as their own category at the top of the action picker
 -- instead of making people hunt through General/Device/Reader for them.
-local COMMON_ACTIONS = {
+local READER_COMMON_ACTIONS = {
     { text = "Next Page",           actions = { page_jmp = 1 } },
     { text = "Previous Page",       actions = { page_jmp = -1 } },
     { text = "Next Chapter",        actions = { next_chapter = true } },
@@ -143,6 +143,39 @@ local COMMON_ACTIONS = {
     { text = "Back",                actions = { back = true } },
     { text = "Toggle Frontlight",   actions = { toggle_frontlight = true } },
     { text = "Show Menu",           actions = { show_menu = true } },
+}
+
+local FILE_MANAGER_COMMON_ACTIONS = {
+    { text = "Back",                actions = { back = true } },
+    { text = "Show Menu",           actions = { show_menu = true } },
+    { text = "File Browser",        actions = { filemanager = true } },
+    { text = "History",             actions = { history = true } },
+    { text = "Search History",      actions = { history_search = true } },
+    { text = "Favorites",           actions = { favorites = true } },
+    { text = "Collections",         actions = { collections = true } },
+    { text = "Search Collections",  actions = { collections_search = true } },
+    { text = "Open Previous Book",  actions = { open_previous_document = true } },
+    { text = "Toggle Night Mode",   actions = { night_mode = true } },
+}
+
+local CONTEXTS = {
+    reader = {
+        label = "Reader",
+        setting = "bt_configurator_bindings_reader",
+        legacy_setting = "bt_configurator_bindings",
+        common_actions = READER_COMMON_ACTIONS,
+        default_bindings = {
+            { keycode = 85, actions = { page_jmp = 1 } },
+            { keycode = 87, actions = { page_jmp = -1 } },
+            { keycode = 88, actions = { night_mode = true } },
+        },
+    },
+    filemanager = {
+        label = "File Manager",
+        setting = "bt_configurator_bindings_filemanager",
+        common_actions = FILE_MANAGER_COMMON_ACTIONS,
+        default_bindings = {},
+    },
 }
 
 local function sameActions(a, b)
@@ -193,9 +226,23 @@ local function keepOnlyAction(actions, item)
     end
 end
 
-local function actionLabel(binding)
+local function changedActionKey(before, after, fallback_key)
+    if fallback_key then return fallback_key end
+    for k, v in pairs(after or {}) do
+        if k ~= "settings" and (before == nil or before[k] ~= v) then
+            return k
+        end
+    end
+    for k, _ in pairs(before or {}) do
+        if k ~= "settings" and (after == nil or after[k] == nil) then
+            return k
+        end
+    end
+end
+
+local function actionLabel(binding, common_actions)
     if binding.actions then
-        for _, common in ipairs(COMMON_ACTIONS) do
+        for _, common in ipairs(common_actions or READER_COMMON_ACTIONS) do
             if sameActions(binding.actions, common.actions) then
                 return common.text
             end
@@ -207,19 +254,31 @@ local function actionLabel(binding)
     return "Nothing"
 end
 
-local DEFAULT_BINDINGS = {
-    { keycode = 85, actions = { page_jmp = 1 } },
-    { keycode = 87, actions = { page_jmp = -1 } },
-    { keycode = 88, actions = { night_mode = true } },
-}
-
 local SLOT = "BTurner_"
 
-local function loadBindings()
-    local saved = G_reader_settings:readSetting("bt_configurator_bindings")
+local function copyBindings(bindings)
+    local copy = {}
+    for _, b in ipairs(bindings or {}) do
+        copy[#copy + 1] = {
+            keycode = b.keycode,
+            actions = copyTable(b.actions),
+        }
+    end
+    return copy
+end
+
+local function loadBindings(context)
+    local cfg = CONTEXTS[context] or CONTEXTS.reader
+    local saved = G_reader_settings:readSetting(cfg.setting)
+    if not saved and cfg.legacy_setting then
+        saved = G_reader_settings:readSetting(cfg.legacy_setting)
+        if saved then
+            G_reader_settings:saveSetting(cfg.setting, saved)
+        end
+    end
     if saved then
         -- One-time cleanup: remove D-pad rows that were auto-added in a previous version
-        if not G_reader_settings:readSetting("bt_configurator_dpad_cleaned") then
+        if context == "reader" and not G_reader_settings:readSetting("bt_configurator_dpad_cleaned") then
             local cleaned = {}
             for _, b in ipairs(saved) do
                 if not (b.keycode and b.keycode >= 19 and b.keycode <= 22) then
@@ -230,7 +289,7 @@ local function loadBindings()
             for _, b in ipairs(cleaned) do
                 normalizeBinding(b)
             end
-            G_reader_settings:saveSetting("bt_configurator_bindings", cleaned)
+            G_reader_settings:saveSetting(cfg.setting, cleaned)
             return cleaned
         end
         local changed = false
@@ -238,22 +297,36 @@ local function loadBindings()
             changed = normalizeBinding(b) or changed
         end
         if changed then
-            G_reader_settings:saveSetting("bt_configurator_bindings", saved)
+            G_reader_settings:saveSetting(cfg.setting, saved)
         end
         return saved
     end
-    local copy = {}
-    for _, b in ipairs(DEFAULT_BINDINGS) do
-        copy[#copy + 1] = { keycode = b.keycode, actions = copyTable(b.actions) }
-    end
-    return copy
+    return copyBindings(cfg.default_bindings)
 end
 
-local function saveBindings(bindings)
-    G_reader_settings:saveSetting("bt_configurator_bindings", bindings)
+local function saveBindings(context, bindings)
+    local cfg = CONTEXTS[context] or CONTEXTS.reader
+    G_reader_settings:saveSetting(cfg.setting, bindings)
+    if cfg.legacy_setting then
+        G_reader_settings:saveSetting(cfg.legacy_setting, bindings)
+    end
+end
+
+local function getCurrentContext(plugin)
+    return plugin.ui and plugin.ui.document and "reader" or "filemanager"
+end
+
+local function ensureKeyEvents(plugin)
+    plugin.key_events = plugin.key_events or {}
+    for i = 1, 16 do
+        local name = SLOT .. i
+        plugin.key_events[name] = { { name } }
+    end
 end
 
 local function applyBindings(plugin)
+    local bindings = plugin._bindings_by_context[plugin._active_context] or {}
+    ensureKeyEvents(plugin)
     local to_clear = {}
     for code, name in pairs(Device.input.event_map) do
         if type(name) == "string" and name:sub(1, #SLOT) == SLOT then
@@ -263,12 +336,10 @@ local function applyBindings(plugin)
     for _, code in ipairs(to_clear) do
         Device.input.event_map[code] = nil
     end
-    plugin.key_events = {}
-    for i, binding in ipairs(plugin._bindings) do
+    for i, binding in ipairs(bindings) do
         if binding.keycode then
             local name = SLOT .. i
             Device.input.event_map[binding.keycode] = name
-            plugin.key_events[name] = { { name } }
         end
     end
 end
@@ -276,7 +347,8 @@ end
 for i = 1, 16 do
     local slot = i
     BluetoothTurner["on" .. SLOT .. slot] = function(self)
-        local binding = self._bindings[slot]
+        local bindings = self._bindings_by_context[self._active_context] or {}
+        local binding = bindings[slot]
         if binding then executeBinding(binding) end
         return true
     end
@@ -306,17 +378,29 @@ function BluetoothTurner:init()
             Device.input.input = patched
         end
     end)
-    self._bindings = loadBindings()
+    self._active_context = "filemanager"
+    self._bindings_by_context = {
+        reader = loadBindings("reader"),
+        filemanager = loadBindings("filemanager"),
+    }
     applyBindings(self)
     self.ui.menu:registerToMainMenu(self)
 end
 
 function BluetoothTurner:onReaderReady()
+    self._active_context = "reader"
     applyBindings(self)
     self:backgroundUpdateCheck()
 end
 
+function BluetoothTurner:onCloseDocument()
+    self._active_context = "filemanager"
+    applyBindings(self)
+end
+
 function BluetoothTurner:onResume()
+    self._active_context = getCurrentContext(self)
+    applyBindings(self)
     self:backgroundUpdateCheck()
 end
 
@@ -468,6 +552,13 @@ function BluetoothTurner:showSettings()
     local col_key = math.floor((btn_w - 2 * sep_w) * 0.44)
     local col_act = math.floor((btn_w - 2 * sep_w) * 0.44)
     local col_del = btn_w - 2 * sep_w - col_key - col_act
+    self._active_context = getCurrentContext(self)
+    applyBindings(self)
+
+    local edit_context = self._active_context or "filemanager"
+    local context_cfg = CONTEXTS[edit_context] or CONTEXTS.reader
+    local bindings = self._bindings_by_context[edit_context] or {}
+    local common_actions = context_cfg.common_actions or READER_COMMON_ACTIONS
 
     local dialog
 
@@ -476,11 +567,16 @@ function BluetoothTurner:showSettings()
         self:showSettings()
     end
 
+    local function saveCurrentBindings()
+        self._bindings_by_context[edit_context] = bindings
+        saveBindings(edit_context, bindings)
+    end
+
     local function showActionPicker(row_index)
         local dispatcher = getDispatcher()
         dispatcher:init()
         local picker_state = { updated = false }
-        local binding = self._bindings[row_index]
+        local binding = bindings[row_index]
         binding.actions = binding.actions or legacyActionToDispatcher(binding.action)
         binding.action = nil
         local picker_binding = { actions = copyTable(binding.actions) }
@@ -541,7 +637,7 @@ function BluetoothTurner:showSettings()
                         end
                     end
                     binding.actions = copyTable(picker_binding.actions)
-                    saveBindings(self._bindings)
+                    saveCurrentBindings()
                     applyBindings(self)
                     actions_before_select = nil
                     picker_state.updated = true
@@ -550,7 +646,7 @@ function BluetoothTurner:showSettings()
             }
         end
         local common_sub_items = {}
-        for _, common in ipairs(COMMON_ACTIONS) do
+        for _, common in ipairs(common_actions) do
             common_sub_items[#common_sub_items + 1] = makeCommonActionItem(common)
         end
         table.insert(item_table, 3, {
@@ -560,11 +656,13 @@ function BluetoothTurner:showSettings()
 
         -- Next/Previous Page also get a spot inside Reader, since that's where
         -- people familiar with dispatcher's own categories would look for them.
-        for _, entry in ipairs(item_table) do
-            if entry.text == "Reader" and entry.sub_item_table then
-                table.insert(entry.sub_item_table, 1, makeCommonActionItem(COMMON_ACTIONS[2]))
-                table.insert(entry.sub_item_table, 1, makeCommonActionItem(COMMON_ACTIONS[1]))
-                break
+        if edit_context == "reader" then
+            for _, entry in ipairs(item_table) do
+                if entry.text == "Reader" and entry.sub_item_table then
+                    table.insert(entry.sub_item_table, 1, makeCommonActionItem(READER_COMMON_ACTIONS[2]))
+                    table.insert(entry.sub_item_table, 1, makeCommonActionItem(READER_COMMON_ACTIONS[1]))
+                    break
+                end
             end
         end
 
@@ -679,7 +777,10 @@ function BluetoothTurner:showSettings()
                             and actions_before_select[item.key] ~= nil then
                         picker_binding.actions[item.key] = actions_before_select[item.key]
                     end
-                    keepOnlyAction(picker_binding.actions, item.key)
+                end
+                if not item.keep_menu_open and #UIManager._window_stack == stack_depth_before then
+                    keepOnlyAction(picker_binding.actions,
+                        changedActionKey(actions_before_select, picker_binding.actions, item.key))
                 end
                 if item.keep_menu_open or #UIManager._window_stack > stack_depth_before then
                     if item.checked_func or item.keep_menu_open then
@@ -703,7 +804,7 @@ function BluetoothTurner:showSettings()
                     item.callback(self_menu)
                 end
                 binding.actions = copyTable(picker_binding.actions)
-                saveBindings(self._bindings)
+                saveCurrentBindings()
                 applyBindings(self)
                 actions_before_select = nil
                 picker_state.updated = true
@@ -752,10 +853,12 @@ function BluetoothTurner:showSettings()
             UIManager:close(picker)
             if picker_state.updated then
                 binding.actions = copyTable(picker_binding.actions)
-                saveBindings(self._bindings)
+                saveCurrentBindings()
                 applyBindings(self)
             end
-            self:showSettings()
+            UIManager:scheduleIn(0, function()
+                self:showSettings()
+            end)
             return true
         end
         UIManager:show(picker)
@@ -776,8 +879,8 @@ function BluetoothTurner:showSettings()
         if Device.input.input then
             Device.input.input.capture_callback = function(code)
                 UIManager:close(msg)
-                self._bindings[row_index].keycode = code
-                saveBindings(self._bindings)
+                bindings[row_index].keycode = code
+                saveCurrentBindings()
                 applyBindings(self)
                 self:showSettings()
             end
@@ -785,7 +888,14 @@ function BluetoothTurner:showSettings()
     end
 
     local buttons = {}
-    for i, binding in ipairs(self._bindings) do
+    buttons[#buttons + 1] = {
+        {
+            text = context_cfg.label .. " Bindings",
+            callback = function() end,
+        },
+    }
+
+    for i, binding in ipairs(bindings) do
         local idx = i
         buttons[#buttons + 1] = {
             {
@@ -797,10 +907,9 @@ function BluetoothTurner:showSettings()
                 end,
             },
             {
-                text = actionLabel(binding),
+                text = actionLabel(binding, common_actions),
                 width = col_act,
                 callback = function()
-                    UIManager:close(dialog)
                     showActionPicker(idx)
                 end,
             },
@@ -808,8 +917,8 @@ function BluetoothTurner:showSettings()
                 text = "\xEF\x87\xB8",
                 width = col_del,
                 callback = function()
-                    table.remove(self._bindings, idx)
-                    saveBindings(self._bindings)
+                    table.remove(bindings, idx)
+                    saveCurrentBindings()
                     applyBindings(self)
                     refresh()
                 end,
@@ -821,8 +930,8 @@ function BluetoothTurner:showSettings()
         {
             text = "+ Add Binding",
             callback = function()
-                self._bindings[#self._bindings + 1] = { keycode = nil, actions = {} }
-                saveBindings(self._bindings)
+                bindings[#bindings + 1] = { keycode = nil, actions = {} }
+                saveCurrentBindings()
                 refresh()
             end,
         },
@@ -836,7 +945,7 @@ function BluetoothTurner:showSettings()
         width = sw - 2 * Size.padding.button,
         align = "center",
         with_bottom_line = true,
-        title = "Bluetooth Configurator",
+        title = "Bluetooth Configurator - " .. context_cfg.label,
         right_icon = "appbar.settings",
         right_icon_tap_callback = function()
             UIManager:close(dialog)

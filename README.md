@@ -60,9 +60,13 @@ The action picker (tap an existing binding's action to open it) is organized as:
 
 Tapping an action **replaces** whatever was previously bound to that key. Long-pressing an action **toggles** it in the current set: unselected actions are added, and selected actions are removed. A checkmark shows which action (and which category it's in) is currently bound.
 
+## Reader and File Manager Bindings
+
+Bluetooth Configurator has separate binding sets for the reader and the file manager, matching KOReader's gesture behavior. Existing bindings migrate into the **Reader** set automatically, while **File Manager** bindings start empty. Open the plugin from the reader to edit reader bindings, or from the file manager to edit file manager bindings.
+
 ## Updates
 
-Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates / Changelog**. If an update is available, the plugin shows the release notes before installing. After you choose **Update and restart**, KOReader restarts automatically.
+Updates can be checked for and installed from within the plugin. Open **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available, the plugin shows the release notes before installing. After you choose **Update and restart**, KOReader restarts automatically.
 
 ### ⚠ v2.0.0: action system rewrite
 
