@@ -164,6 +164,35 @@ local function containsActions(actions, subset)
     return true
 end
 
+local function removeActions(actions, subset)
+    if actions == nil or subset == nil then return end
+    for k, _ in pairs(subset) do
+        actions[k] = nil
+    end
+    if actions.settings and actions.settings.order then
+        local filtered_order = {}
+        for _, item in ipairs(actions.settings.order) do
+            if subset[item] == nil then
+                filtered_order[#filtered_order + 1] = item
+            end
+        end
+        actions.settings.order = #filtered_order > 0 and filtered_order or nil
+    end
+end
+
+local function keepOnlyAction(actions, item)
+    if actions == nil or item == nil then return end
+    for k, _ in pairs(actions) do
+        if k ~= item and k ~= "settings" then
+            actions[k] = nil
+        end
+    end
+    if actions.settings then
+        actions.settings.order = nil
+        actions.settings.execute_one_by_one = nil
+    end
+end
+
 local function actionLabel(binding)
     if binding.actions then
         for _, common in ipairs(COMMON_ACTIONS) do
@@ -801,6 +830,7 @@ function BluetoothTurner:showSettings()
         binding.actions = binding.actions or legacyActionToDispatcher(binding.action)
         binding.action = nil
         local picker_binding = { actions = copyTable(binding.actions) }
+        local actions_before_select = nil
 
         local item_table = {}
         dispatcher:addSubMenu(picker_state, item_table, picker_binding, "actions")
@@ -842,18 +872,24 @@ function BluetoothTurner:showSettings()
                     return containsActions(picker_binding.actions, common.actions)
                 end,
                 callback = function(touchmenu_instance)
-                    picker_binding.actions = picker_binding.actions or {}
-                    for k, v in pairs(common.actions) do
-                        picker_binding.actions[k] = v
-                    end
+                    picker_binding.actions = copyTable(common.actions)
                     picker_state.updated = true
                     if touchmenu_instance then touchmenu_instance:updateItems() end
                 end,
                 hold_callback = function(touchmenu_instance)
-                    picker_binding.actions = picker_binding.actions or {}
-                    for k, v in pairs(common.actions) do
-                        picker_binding.actions[k] = v
+                    local actions = actions_before_select or picker_binding.actions or {}
+                    picker_binding.actions = copyTable(actions)
+                    if containsActions(actions, common.actions) then
+                        removeActions(picker_binding.actions, common.actions)
+                    else
+                        for k, v in pairs(common.actions) do
+                            picker_binding.actions[k] = v
+                        end
                     end
+                    binding.actions = copyTable(picker_binding.actions)
+                    saveBindings(self._bindings)
+                    applyBindings(self)
+                    actions_before_select = nil
                     picker_state.updated = true
                     if touchmenu_instance then touchmenu_instance:updateItems() end
                 end,
@@ -979,10 +1015,18 @@ function BluetoothTurner:showSettings()
                 -- pages"), the window stack grows -- leave this menu open
                 -- underneath so the user can still back out after finishing there.
                 if not item.keep_menu_open then
-                    picker_binding.actions = {}
+                    actions_before_select = copyTable(picker_binding.actions)
                 end
                 local stack_depth_before = #UIManager._window_stack
                 item.callback(self_menu)
+                if not item.keep_menu_open and item.key and #UIManager._window_stack == stack_depth_before then
+                    if picker_binding.actions[item.key] == nil
+                            and actions_before_select
+                            and actions_before_select[item.key] ~= nil then
+                        picker_binding.actions[item.key] = actions_before_select[item.key]
+                    end
+                    keepOnlyAction(picker_binding.actions, item.key)
+                end
                 if item.keep_menu_open or #UIManager._window_stack > stack_depth_before then
                     if item.checked_func or item.keep_menu_open then
                         self_menu:updateItems()
@@ -994,11 +1038,21 @@ function BluetoothTurner:showSettings()
             return true
         end
         picker.onMenuHold = function(self_menu, item)
-            -- Long-press adds this action to the existing set instead of
-            -- replacing it, for the rare case of wanting more than one
-            -- action on a single button press.
+            -- Long-press toggles this action in the current set: remove it if
+            -- selected, add it if not. Tap remains replace-and-close.
             if item.callback and not (item.sub_item_table_func or item.sub_item_table) then
-                item.callback(self_menu)
+                local actions = actions_before_select or picker_binding.actions or {}
+                picker_binding.actions = copyTable(actions)
+                if item.hold_callback then
+                    item.hold_callback(self_menu)
+                else
+                    item.callback(self_menu)
+                end
+                binding.actions = copyTable(picker_binding.actions)
+                saveBindings(self._bindings)
+                applyBindings(self)
+                actions_before_select = nil
+                picker_state.updated = true
                 self_menu:updateItems()
             end
             return true
