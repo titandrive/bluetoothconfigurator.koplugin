@@ -324,9 +324,55 @@ local function ensureKeyEvents(plugin)
     end
 end
 
+local function getFileChooser(plugin)
+    return plugin.ui and plugin.ui.file_chooser
+end
+
+local function clearFileChooserKeyEvents(plugin)
+    local file_chooser = getFileChooser(plugin)
+    if not file_chooser or not file_chooser.key_events then return end
+
+    file_chooser._bt_configurator_key_aliases = {}
+    for name in pairs(file_chooser.key_events) do
+        if type(name) == "string" and name:sub(1, #SLOT) == SLOT then
+            file_chooser.key_events[name] = nil
+            file_chooser["on" .. name] = nil
+        end
+    end
+end
+
+local function ensureFileChooserKeyPressHook(plugin)
+    local file_chooser = getFileChooser(plugin)
+    if not file_chooser or file_chooser._bt_configurator_original_onKeyPress then return file_chooser end
+
+    file_chooser._bt_configurator_original_onKeyPress = file_chooser.onKeyPress
+    file_chooser.onKeyPress = function(this, key)
+        for slot, aliases in pairs(this._bt_configurator_key_aliases or {}) do
+            for _, alias in ipairs(aliases) do
+                if alias and key:match({ alias }) then
+                    local active_bindings = plugin._bindings_by_context[plugin._active_context] or {}
+                    local active_binding = active_bindings[slot]
+                    if active_binding then executeBinding(active_binding) end
+                    return true
+                end
+            end
+        end
+        return this:_bt_configurator_original_onKeyPress(key)
+    end
+
+    return file_chooser
+end
+
 local function applyBindings(plugin)
     local bindings = plugin._bindings_by_context[plugin._active_context] or {}
     ensureKeyEvents(plugin)
+    local mapped_names = {}
+    for i, binding in ipairs(bindings) do
+        if binding.keycode then
+            mapped_names[i] = Device.input.event_map[binding.keycode]
+        end
+    end
+    clearFileChooserKeyEvents(plugin)
     local to_clear = {}
     for code, name in pairs(Device.input.event_map) do
         if type(name) == "string" and name:sub(1, #SLOT) == SLOT then
@@ -338,8 +384,27 @@ local function applyBindings(plugin)
     end
     for i, binding in ipairs(bindings) do
         if binding.keycode then
+            local slot = i
             local name = SLOT .. i
             Device.input.event_map[binding.keycode] = name
+            local file_chooser = ensureFileChooserKeyPressHook(plugin)
+            if file_chooser and file_chooser.key_events then
+                local aliases = { name }
+                if mapped_names[slot] and mapped_names[slot] ~= name then
+                    aliases[#aliases + 1] = mapped_names[slot]
+                end
+                file_chooser._bt_configurator_key_aliases[slot] = aliases
+                file_chooser.key_events[name] = {}
+                for _, alias in ipairs(aliases) do
+                    file_chooser.key_events[name][#file_chooser.key_events[name] + 1] = { alias }
+                end
+                file_chooser["on" .. name] = function()
+                    local active_bindings = plugin._bindings_by_context[plugin._active_context] or {}
+                    local active_binding = active_bindings[slot]
+                    if active_binding then executeBinding(active_binding) end
+                    return true
+                end
+            end
         end
     end
 end
@@ -384,6 +449,12 @@ function BluetoothTurner:init()
         filemanager = loadBindings("filemanager"),
     }
     applyBindings(self)
+    if self.ui and self.ui.registerPostInitCallback then
+        self.ui:registerPostInitCallback(function()
+            self._active_context = "filemanager"
+            applyBindings(self)
+        end)
+    end
     self.ui.menu:registerToMainMenu(self)
 end
 
@@ -910,6 +981,7 @@ function BluetoothTurner:showSettings()
                 text = actionLabel(binding, common_actions),
                 width = col_act,
                 callback = function()
+                    UIManager:close(dialog)
                     showActionPicker(idx)
                 end,
             },
