@@ -1,15 +1,12 @@
 # Bluetooth Configurator - A KOReader plugin for Android to configure page turners
 
 
-## **⚠ BETA — ANDROID ONLY**
+## **⚠ ANDROID ONLY**
 >This plugin is **Android** only. Have a Kobo? Try [this](https://github.com/onatbas/bluetooth.koplugin) plugin instead! Kindle? Try [this!](https://gist.github.com/liquidguru/1e9c77f9389cdf23f94d2a94b220c90a)
->
-> **This plugin is in beta. Back up your KOReader directory before installing.**
-> It patches KOReader's input handler at runtime and may cause instability.
 
 ---
 
-Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller and page turner buttons to actions within the reader. Not only is this far easier then the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides for more controls then keymapping allows. It supports standard media keys as well as D-pad/joystick controllers. 
+Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller, page turner, and hardware keyboard buttons to actions within the reader. Not only is this far easier then the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides for more controls then keymapping allows. It supports standard media keys, hardware keyboards, and D-pad/joystick controllers.
 
 <img src="demo.gif" height="400" />
 <img height="400" alt="Home page" src="https://github.com/user-attachments/assets/96139a80-1841-4c66-9a55-69d50dacba1b" />
@@ -26,7 +23,7 @@ Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively
 ## Requirements
 
 - KOReader on **Android** (not supported on Kindle, Kobo, or other platforms)
-- A Bluetooth page turner or controller
+- A Bluetooth page turner, controller, or device with a hardware keyboard
 
 ## Installation
 
@@ -60,9 +57,13 @@ The action picker (tap an existing binding's action to open it) is organized as:
 
 Tapping an action **replaces** whatever was previously bound to that key. Long-pressing an action **toggles** it in the current set: unselected actions are added, and selected actions are removed. A checkmark shows which action (and which category it's in) is currently bound.
 
+Tap the search icon to filter actions live as you type. Selecting an action from the results works the same as selecting it from a category, and tapping outside the search dialog closes it.
+
 ## Updates
 
-Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates / Changelog**. If an update is available, the plugin shows the release notes before installing. After you choose **Update and restart**, KOReader restarts automatically.
+Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available, the plugin shows the release notes before installing. After you choose **Update and restart**, KOReader restarts automatically.
+
+The settings panel also includes **Check for updates on wake**, which controls whether the plugin checks for updates when KOReader wakes or resumes.
 
 ### ⚠ v2.0.0: action system rewrite
 
@@ -77,9 +78,10 @@ Although this plugin should work with any Android based E-Reader and bluetooth c
 - Boox Go 7 (Color / Black & White)
 - Boox Nova 2
 - BigMe Hibreak Pro
+- Minimal Phone
 - Samsung S26 Ultra
 
-### Controllers / Page Turners 
+### Controllers / Page Turners / Keyboards
 - 8BitDo Micro
 - 8BitDo FC30
 - 8BitDo SN30 Pro
