@@ -4,7 +4,7 @@
 > [!IMPORTANT]
 > This plugin is **Android only.** Have a Kobo? Try [this](https://github.com/onatbas/bluetooth.koplugin) plugin instead. Kindle? Try [this](https://gist.github.com/liquidguru/1e9c77f9389cdf23f94d2a94b220c90a).
 
-Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller, page turner, and hardware keyboard buttons to actions within the reader. Not only is this far easier then the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides for more controls then keymapping allows. It supports standard media keys, hardware keyboards, and D-pad/joystick controllers.
+Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller, page turner, and hardware keyboard buttons to actions within the reader and file manager. Not only is this far easier than the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides more controls than keymapping allows. It supports standard media keys, hardware keyboards, and D-pad/joystick controllers.
 
 <img src="demo.gif" height="400" />
 <img height="400" alt="Home page" src="https://github.com/user-attachments/assets/96139a80-1841-4c66-9a55-69d50dacba1b" />
@@ -32,7 +32,7 @@ Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively
 
 ## Usage
 
-Open a book and access **Plugins → Bluetooth Configurator** to set up your bindings.
+Open **Plugins → Bluetooth Configurator** from the reader or file manager to set up bindings for that area.
 
 - Tap **Add Binding** to create a new binding
 - Tap **"tap to set..."**. The plugin will begin listening for your controller.
@@ -50,12 +50,18 @@ The action picker (tap an existing binding's action to open it) is organized as:
 
 - **Clear Selected Action(s)** — empties the binding without closing the picker
 - **Nothing** — explicitly binds no action
-- **Common Actions** — a curated shortlist of the actions people bind most often: Next/Previous Page, Next/Previous Chapter, Toggle Bookmark, Toggle Night Mode, Table of Contents, Back, Toggle Frontlight, Show Menu
+- **Common Actions** — a curated shortlist of the actions people bind most often for the current context
 - **General / Device / Screen and lights / File browser / Reader** — KOReader's own dispatcher categories, covering everything else
 
 Tapping an action **replaces** whatever was previously bound to that key. Long-pressing an action **toggles** it in the current set: unselected actions are added, and selected actions are removed. A checkmark shows which action (and which category it's in) is currently bound.
 
 Tap the search icon to filter actions live as you type. Selecting an action from the results works the same as selecting it from a category, and tapping outside the search dialog closes it.
+
+When editing File Manager bindings, reader-only categories like Reader, Paging, Rolling, and Document are hidden from the picker. Reader bindings still show the full reader-focused action set.
+
+## Reader and File Manager Bindings
+
+Bluetooth Configurator has separate binding sets for the reader and the file manager, matching KOReader's gesture behavior. Existing bindings migrate into the **Reader** set automatically, while **File Manager** bindings start empty. Open the plugin from the reader to edit reader bindings, or from the file manager to edit file manager bindings.
 
 ## Updates
 
@@ -68,6 +74,10 @@ The settings panel also includes **Check for updates on wake**, which controls w
 Version 2.0.0 replaces the plugin's own hand-maintained action list with KOReader's built-in dispatcher system (see [Supported Actions](#supported-actions)). Existing bindings are migrated automatically the first time the plugin loads after updating — you should not need to redo anything.
 
 That said, this is a substantial rewrite of how actions are stored and resolved, and it's possible some existing bindings won't carry over cleanly on every device/KOReader version combination. **After updating, please check your bindings still trigger the actions you expect**, and open an issue if anything looks wrong.
+
+### v2.2.0: file manager bindings
+
+Version 2.2.0 adds a separate File Manager binding set, so the same physical button can trigger one action in the reader and a different action in the file manager. It also filters the File Manager action picker to hide reader-only categories and flushes binding changes immediately so settings are less likely to be lost after a restart.
 
 ## Validated Devices
 Although this plugin should work with any Android based E-Reader and bluetooth controller, it has been validated with the following devices:
@@ -87,7 +97,7 @@ Although this plugin should work with any Android based E-Reader and bluetooth c
 - [ADZERD Page Turner Ring](https://a.co/d/09Ze3ATI)
 
 ## Testers Needed
-As this plugin is in beta, testers are needed and appreciated! If you run into any controllers or actions that don't work, or other problems, don't hesitate to create an issue. I am a big propnent of accessibility and want this plugin to work perfectly for everyone. Page turners have been a life saver for me. 
+As this plugin is in beta, testers are needed and appreciated! If you run into any controllers, hardware keyboards, actions that don't work, or other problems, don't hesitate to create an issue. I am a big proponent of accessibility and want this plugin to work perfectly for everyone. Page turners have been a life saver for me.
 
 ## License
 
