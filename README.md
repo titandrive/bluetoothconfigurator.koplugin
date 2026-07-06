@@ -68,23 +68,15 @@ When editing File Manager bindings, reader-only categories like Reader, Paging, 
 
 ## Reader and File Manager Bindings
 
-Bluetooth Configurator has separate binding sets for the reader and the file manager, matching KOReader's gesture behavior. Existing bindings migrate into the **Reader** set automatically, while **File Manager** bindings start empty. Open the plugin from the reader to edit reader bindings, or from the file manager to edit file manager bindings.
+Bluetooth Configurator keeps separate binding sets for the reader and the file manager, matching KOReader's gesture behavior. Open the plugin from the reader to edit reader bindings, or from the file manager to edit file manager bindings.
+
+If you updated from a version before v2.2.0, your existing bindings were migrated into the **Reader** set automatically, and the new **File Manager** bindings started empty.
 
 ## Updates
 
 Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available, the plugin shows the release notes before installing. After you choose **Update and restart**, KOReader restarts automatically.
 
 The settings panel also includes **Check for updates on wake**, which controls whether the plugin checks for updates when KOReader wakes or resumes.
-
-### ⚠ v2.0.0: action system rewrite
-
-Version 2.0.0 replaces the plugin's own hand-maintained action list with KOReader's built-in dispatcher system (see [Supported Actions](#supported-actions)). Existing bindings are migrated automatically the first time the plugin loads after updating — you should not need to redo anything.
-
-That said, this is a substantial rewrite of how actions are stored and resolved, and it's possible some existing bindings won't carry over cleanly on every device/KOReader version combination. **After updating, please check your bindings still trigger the actions you expect**, and open an issue if anything looks wrong.
-
-### v2.2.0: file manager bindings
-
-Version 2.2.0 adds a separate File Manager binding set, so the same physical button can trigger one action in the reader and a different action in the file manager. It also filters the File Manager action picker to hide reader-only categories and flushes binding changes immediately so settings are less likely to be lost after a restart.
 
 ## Validated Devices
 Although this plugin should work with any Android based E-Reader and bluetooth controller, it has been validated with the following devices:
