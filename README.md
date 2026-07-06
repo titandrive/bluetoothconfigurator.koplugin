@@ -7,7 +7,8 @@
 Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller, page turner, and hardware keyboard buttons to actions within the reader and file manager. Not only is this far easier than the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides more controls than keymapping allows. It supports standard media keys, hardware keyboards, and D-pad/joystick controllers.
 
 <img src="demo.gif" height="400" />
-<img height="400" alt="Home page" src="https://github.com/user-attachments/assets/96139a80-1841-4c66-9a55-69d50dacba1b" />
+<img height="400" alt="Screenshot_20260706_160559" src="https://github.com/user-attachments/assets/acf1948d-787d-4c68-bdb3-8037c6e6397e" />
+
 <img height="400" alt="Screenshot_20260706_160507" src="https://github.com/user-attachments/assets/48182716-fa1f-4e11-8129-5cad2847a415" />
 
 <img height="400" alt="Actions categories" src="https://github.com/user-attachments/assets/0f0c97ad-3332-4780-8022-3295d5259d45" />
