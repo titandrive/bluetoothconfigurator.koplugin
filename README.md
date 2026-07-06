@@ -32,19 +32,22 @@ Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively
 1. Download or clone this repository
 2. Copy the `bluetoothconfigurator.koplugin` folder into your KOReader `plugins` directory
 3. Restart KOReader
-4. Open a book, then go to the top menu → **Plugins** → **Bluetooth Configurator**
+4. Open **Plugins → Bluetooth Configurator** from either the file manager or the reader
 
 ## Usage
 
-Open **Plugins → Bluetooth Configurator** from the reader or file manager to set up bindings for that area.
+Bluetooth Configurator keeps separate bindings for the reader and the file manager. Open **Plugins → Bluetooth Configurator** from the area you want to configure:
+
+- Open it from the file manager to edit **File Manager** bindings
+- Open it while reading a book to edit **Reader** bindings
 
 - Tap **Add Binding** to create a new binding
-- Tap **"tap to set..."**. The plugin will begin listening for your controller.
-- Press the desired button you want to pair. The plugin will capture its keycode. 
+- Tap **"tap to set..."**. The plugin will begin listening for your controller, page turner, or keyboard.
+- Press the desired button you want to pair. The plugin will capture its keycode.
 - Select the action you want it to trigger
 - Use the 🗑 icon to remove a binding
 
-Bindings are saved automatically and persist across sessions.
+Bindings are saved automatically and persist across sessions. The same physical button can be bound to different actions in the reader and file manager.
 
 ## Supported Actions
 

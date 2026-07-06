@@ -2,7 +2,7 @@ local InputContainer = require("ui/widget/container/inputcontainer")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
-local PLUGIN_VERSION = "2.2.0"
+local PLUGIN_VERSION = "2.2.1"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 
@@ -441,6 +441,7 @@ function BluetoothTurner:init()
             applyBindings(self)
         end
     end)
+    self:onDispatcherRegisterActions()
     self.ui.menu:registerToMainMenu(self)
 end
 
@@ -483,6 +484,21 @@ function BluetoothTurner:addToMainMenu(menu_items)
         text = "Bluetooth Configurator",
         callback = function() self:showSettings() end,
     }
+end
+
+function BluetoothTurner:onDispatcherRegisterActions()
+    local dispatcher = getDispatcher()
+    dispatcher:registerAction("bluetooth_configurator_open", {
+        category = "none",
+        event = "BluetoothConfiguratorOpen",
+        title = "Open Bluetooth Configurator",
+        general = true,
+    })
+end
+
+function BluetoothTurner:onBluetoothConfiguratorOpen()
+    self:showSettings()
+    return true
 end
 
 function BluetoothTurner:showInfoPanel()
@@ -938,7 +954,7 @@ function BluetoothTurner:showSettings()
     local function startCapture(row_index)
         local msg
         msg = InfoMessage:new{
-            text = "Press a button on your page turner...",
+            text = "Press a button on your Bluetooth device...",
             timeout = 10,
             close_callback = function()
                 if Device.input.input then
@@ -1017,7 +1033,7 @@ function BluetoothTurner:showSettings()
         width = sw - 2 * Size.padding.button,
         align = "center",
         with_bottom_line = true,
-        title = "Bluetooth Configurator - " .. context_cfg.label,
+        title = "Bluetooth Configurator",
         right_icon = "appbar.settings",
         right_icon_tap_callback = function()
             UIManager:close(dialog)
