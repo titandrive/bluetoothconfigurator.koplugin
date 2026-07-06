@@ -7,12 +7,14 @@
 Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively map Bluetooth game controller, page turner, and hardware keyboard buttons to actions within the reader and file manager. Not only is this far easier than the official way of using [keymapping](https://github.com/koreader/koreader/wiki/Android-tips-and-tricks#customize-keys), but it provides more controls than keymapping allows. It supports standard media keys, hardware keyboards, and D-pad/joystick controllers.
 
 <img src="demo.gif" height="400" />
-<img height="400" alt="Screenshot_20260706_160559" src="https://github.com/user-attachments/assets/acf1948d-787d-4c68-bdb3-8037c6e6397e" />
+<img height="400" alt="File manager bindings" src="https://github.com/user-attachments/assets/acf1948d-787d-4c68-bdb3-8037c6e6397e" />
 
-<img height="400" alt="Screenshot_20260706_160507" src="https://github.com/user-attachments/assets/48182716-fa1f-4e11-8129-5cad2847a415" />
+<img height="400" alt="Reader bindings" src="https://github.com/user-attachments/assets/48182716-fa1f-4e11-8129-5cad2847a415" />
 
-<img height="400" alt="Actions categories" src="https://github.com/user-attachments/assets/0f0c97ad-3332-4780-8022-3295d5259d45" />
-<img height="400" alt="Actions examples" src="https://github.com/user-attachments/assets/e68ec6c7-21a0-489c-87a1-e4cacac3a428" />
+<img height="2340" alt="Choose action" src="https://github.com/user-attachments/assets/d7e19e4c-82b7-4840-be4e-59f25cc7ac68" />
+
+<img  height="400" alt="Common actions" src="https://github.com/user-attachments/assets/06fb398d-e151-4c60-b1d8-01fd66b4064b" />
+
 <img height="400" alt="Actions search" src="https://github.com/user-attachments/assets/50268a43-eb1d-46e4-89c3-84e005f33518" />
 
 
