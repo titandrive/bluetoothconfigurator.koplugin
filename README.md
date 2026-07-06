@@ -13,7 +13,7 @@ Bluetooth Configurator is a KOReader plugin that lets you easily and intuitively
 
 <img height="400" alt="Choose action" src="https://github.com/user-attachments/assets/d7e19e4c-82b7-4840-be4e-59f25cc7ac68" />
 
-<img  height="400" alt="Common actions" src="https://github.com/user-attachments/assets/06fb398d-e151-4c60-b1d8-01fd66b4064b" />
+<img height="400" alt="Common actions" src="https://github.com/user-attachments/assets/06fb398d-e151-4c60-b1d8-01fd66b4064b" />
 
 <img height="400" alt="Actions search" src="https://github.com/user-attachments/assets/50268a43-eb1d-46e4-89c3-84e005f33518" />
 
