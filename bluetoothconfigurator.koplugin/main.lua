@@ -318,6 +318,17 @@ local function getCurrentContext(plugin)
     return plugin.ui and plugin.ui.document and "reader" or "filemanager"
 end
 
+local function setActiveContext(plugin, context)
+    plugin._active_context = context
+    BluetoothTurner._runtime_context = context
+end
+
+local function isPluginContextActive(plugin)
+    return plugin._active_context == nil
+        or BluetoothTurner._runtime_context == nil
+        or plugin._active_context == BluetoothTurner._runtime_context
+end
+
 local function ensureKeyEvents(plugin)
     plugin.key_events = plugin.key_events or {}
     for i = 1, 16 do
@@ -417,7 +428,8 @@ local function ensureFileManagerSendEventHook(plugin)
     UIManager._bt_configurator_original_sendEvent = UIManager.sendEvent
     UIManager.sendEvent = function(manager, event)
         local key = event and event.args and event.args[1]
-        if plugin._active_context == "filemanager"
+        if BluetoothTurner._runtime_context == "filemanager"
+                and plugin._active_context == "filemanager"
                 and event
                 and (event.handler == "onKeyPress" or event.handler == "onKeyRepeat")
                 and key then
@@ -477,6 +489,8 @@ local function ensureFileChooserKeyPressHook(plugin)
 end
 
 local function applyBindings(plugin)
+    if not isPluginContextActive(plugin) then return end
+
     local bindings = plugin._bindings_by_context[plugin._active_context] or {}
     logger.info("BluetoothConfigurator applyBindings",
         "context=" .. tostring(plugin._active_context),
@@ -596,7 +610,7 @@ function BluetoothTurner:init()
             Device.input.input = patched
         end
     end)
-    self._active_context = "filemanager"
+    setActiveContext(self, getCurrentContext(self))
     self._bindings_by_context = {
         reader = loadBindings("reader"),
         filemanager = loadBindings("filemanager"),
@@ -607,7 +621,9 @@ function BluetoothTurner:init()
         self.ui:registerPostInitCallback(function()
             logger.info("BluetoothConfigurator filemanager post-init: running",
                 "has_file_chooser=" .. tostring(getFileChooser(self) ~= nil))
-            self._active_context = "filemanager"
+            if BluetoothTurner._runtime_context ~= "reader" then
+                setActiveContext(self, "filemanager")
+            end
             applyBindings(self)
         end)
     end
@@ -615,7 +631,9 @@ function BluetoothTurner:init()
         if self.ui and not self.ui.document then
             logger.info("BluetoothConfigurator filemanager deferred apply",
                 "has_file_chooser=" .. tostring(getFileChooser(self) ~= nil))
-            self._active_context = "filemanager"
+            if BluetoothTurner._runtime_context ~= "reader" then
+                setActiveContext(self, "filemanager")
+            end
             applyBindings(self)
         end
     end)
@@ -623,18 +641,21 @@ function BluetoothTurner:init()
 end
 
 function BluetoothTurner:onReaderReady()
-    self._active_context = "reader"
+    setActiveContext(self, "reader")
     applyBindings(self)
     self:backgroundUpdateCheck()
 end
 
 function BluetoothTurner:onCloseDocument()
-    self._active_context = "filemanager"
+    setActiveContext(self, "filemanager")
     applyBindings(self)
 end
 
 function BluetoothTurner:onResume()
-    self._active_context = getCurrentContext(self)
+    local context = getCurrentContext(self)
+    if not (context == "filemanager" and BluetoothTurner._runtime_context == "reader") then
+        setActiveContext(self, context)
+    end
     applyBindings(self)
     self:backgroundUpdateCheck()
 end
@@ -787,7 +808,7 @@ function BluetoothTurner:showSettings()
     local col_key = math.floor((btn_w - 2 * sep_w) * 0.44)
     local col_act = math.floor((btn_w - 2 * sep_w) * 0.44)
     local col_del = btn_w - 2 * sep_w - col_key - col_act
-    self._active_context = getCurrentContext(self)
+    setActiveContext(self, getCurrentContext(self))
     self._bindings_by_context.reader = loadBindings("reader")
     self._bindings_by_context.filemanager = loadBindings("filemanager")
     applyBindings(self)
