@@ -1,6 +1,7 @@
 local InputContainer = require("ui/widget/container/inputcontainer")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
+local logger = require("logger")
 
 local PLUGIN_VERSION = "2.1.0"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
@@ -310,6 +311,7 @@ local function saveBindings(context, bindings)
     if cfg.legacy_setting then
         G_reader_settings:saveSetting(cfg.legacy_setting, bindings)
     end
+    G_reader_settings:flush()
 end
 
 local function getCurrentContext(plugin)
@@ -341,15 +343,125 @@ local function clearFileChooserKeyEvents(plugin)
     end
 end
 
+local function clearFileManagerKeyEvents(plugin)
+    local file_manager = plugin.ui
+    if not file_manager or file_manager.document or not file_manager.key_events then return end
+
+    file_manager._bt_configurator_event_slots = {}
+    for name in pairs(file_manager.key_events) do
+        if type(name) == "string" and name:sub(1, #SLOT) == SLOT then
+            file_manager.key_events[name] = nil
+            file_manager["on" .. name] = nil
+        end
+    end
+end
+
+local function ensureFileManagerEventHook(plugin)
+    local file_manager = plugin.ui
+    if not file_manager or file_manager.document then return nil end
+    if file_manager._bt_configurator_original_handleEvent then return file_manager end
+
+    file_manager._bt_configurator_original_handleEvent = file_manager.handleEvent
+    file_manager.handleEvent = function(this, event)
+        local slot = this._bt_configurator_event_slots
+            and this._bt_configurator_event_slots[event.handler]
+        if slot then
+            logger.info("BluetoothConfigurator filemanager root intercepted",
+                "slot=" .. tostring(slot),
+                "handler=" .. tostring(event.handler))
+            local active_bindings = plugin._bindings_by_context[plugin._active_context] or {}
+            local active_binding = active_bindings[slot]
+            if active_binding then executeBinding(active_binding) end
+            return true
+        end
+        return this:_bt_configurator_original_handleEvent(event)
+    end
+
+    return file_manager
+end
+
+local function ensureFileManagerTopWidgetHook(plugin)
+    if plugin.ui and plugin.ui.document then return nil end
+    local widget = UIManager:getTopmostVisibleWidget()
+    if not widget then return nil end
+
+    widget._bt_configurator_event_slots = widget._bt_configurator_event_slots or {}
+    if widget._bt_configurator_original_handleEvent then return widget end
+
+    widget._bt_configurator_original_handleEvent = widget.handleEvent
+    widget.handleEvent = function(this, event)
+        local slot = this._bt_configurator_event_slots
+            and (this._bt_configurator_event_slots[event.handler]
+                or this._bt_configurator_event_slots[event.name])
+        if slot then
+            logger.info("BluetoothConfigurator filemanager top intercepted",
+                "slot=" .. tostring(slot),
+                "handler=" .. tostring(event.handler),
+                "name=" .. tostring(event.name))
+            local active_bindings = plugin._bindings_by_context[plugin._active_context] or {}
+            local active_binding = active_bindings[slot]
+            if active_binding then executeBinding(active_binding) end
+            return true
+        end
+        return this:_bt_configurator_original_handleEvent(event)
+    end
+
+    logger.info("BluetoothConfigurator filemanager top hook installed",
+        "widget=" .. tostring(widget.name or widget.id or widget))
+    return widget
+end
+
+local function ensureFileManagerSendEventHook(plugin)
+    if UIManager._bt_configurator_original_sendEvent then return end
+
+    UIManager._bt_configurator_original_sendEvent = UIManager.sendEvent
+    UIManager.sendEvent = function(manager, event)
+        local key = event and event.args and event.args[1]
+        if plugin._active_context == "filemanager"
+                and event
+                and (event.handler == "onKeyPress" or event.handler == "onKeyRepeat")
+                and key then
+            local active_bindings = plugin._bindings_by_context.filemanager or {}
+            for slot, binding in ipairs(active_bindings) do
+                local name = SLOT .. slot
+                if binding.keycode and key:match({ name }) then
+                    logger.info("BluetoothConfigurator filemanager sendEvent intercepted",
+                        "slot=" .. tostring(slot),
+                        "name=" .. tostring(name),
+                        "handler=" .. tostring(event.handler))
+                    executeBinding(binding)
+                    return
+                end
+            end
+        end
+        return manager:_bt_configurator_original_sendEvent(event)
+    end
+
+    logger.info("BluetoothConfigurator filemanager sendEvent hook installed")
+end
+
 local function ensureFileChooserKeyPressHook(plugin)
     local file_chooser = getFileChooser(plugin)
-    if not file_chooser or file_chooser._bt_configurator_original_onKeyPress then return file_chooser end
+    if not file_chooser then
+        logger.info("BluetoothConfigurator filemanager hook: no file_chooser yet")
+        return nil
+    end
+    if file_chooser._bt_configurator_original_onKeyPress then
+        logger.info("BluetoothConfigurator filemanager hook: already installed")
+        return file_chooser
+    end
 
     file_chooser._bt_configurator_original_onKeyPress = file_chooser.onKeyPress
     file_chooser.onKeyPress = function(this, key)
+        logger.info("BluetoothConfigurator filemanager onKeyPress",
+            "context=" .. tostring(plugin._active_context),
+            "aliases=" .. tostring(this._bt_configurator_key_aliases ~= nil))
         for slot, aliases in pairs(this._bt_configurator_key_aliases or {}) do
             for _, alias in ipairs(aliases) do
                 if alias and key:match({ alias }) then
+                    logger.info("BluetoothConfigurator filemanager matched",
+                        "slot=" .. tostring(slot),
+                        "alias=" .. tostring(alias))
                     local active_bindings = plugin._bindings_by_context[plugin._active_context] or {}
                     local active_binding = active_bindings[slot]
                     if active_binding then executeBinding(active_binding) end
@@ -360,18 +472,27 @@ local function ensureFileChooserKeyPressHook(plugin)
         return this:_bt_configurator_original_onKeyPress(key)
     end
 
+    logger.info("BluetoothConfigurator filemanager hook: installed")
     return file_chooser
 end
 
 local function applyBindings(plugin)
     local bindings = plugin._bindings_by_context[plugin._active_context] or {}
+    logger.info("BluetoothConfigurator applyBindings",
+        "context=" .. tostring(plugin._active_context),
+        "bindings=" .. tostring(#bindings),
+        "has_file_chooser=" .. tostring(getFileChooser(plugin) ~= nil))
     ensureKeyEvents(plugin)
+    if plugin._active_context == "filemanager" then
+        ensureFileManagerSendEventHook(plugin)
+    end
     local mapped_names = {}
     for i, binding in ipairs(bindings) do
         if binding.keycode then
             mapped_names[i] = Device.input.event_map[binding.keycode]
         end
     end
+    clearFileManagerKeyEvents(plugin)
     clearFileChooserKeyEvents(plugin)
     local to_clear = {}
     for code, name in pairs(Device.input.event_map) do
@@ -387,6 +508,27 @@ local function applyBindings(plugin)
             local slot = i
             local name = SLOT .. i
             Device.input.event_map[binding.keycode] = name
+            local file_manager = ensureFileManagerEventHook(plugin)
+            if file_manager and file_manager._bt_configurator_event_slots then
+                file_manager._bt_configurator_event_slots["on" .. name] = slot
+            end
+            local top_widget = ensureFileManagerTopWidgetHook(plugin)
+            if top_widget and top_widget._bt_configurator_event_slots then
+                top_widget._bt_configurator_event_slots["on" .. name] = slot
+                top_widget._bt_configurator_event_slots[name] = slot
+            end
+            if plugin.ui and not plugin.ui.document and plugin.ui.key_events then
+                plugin.ui.key_events[name] = { { name } }
+                plugin.ui["on" .. name] = function()
+                    logger.info("BluetoothConfigurator filemanager root event",
+                        "slot=" .. tostring(slot),
+                        "name=" .. tostring(name))
+                    local active_bindings = plugin._bindings_by_context[plugin._active_context] or {}
+                    local active_binding = active_bindings[slot]
+                    if active_binding then executeBinding(active_binding) end
+                    return true
+                end
+            end
             local file_chooser = ensureFileChooserKeyPressHook(plugin)
             if file_chooser and file_chooser.key_events then
                 local aliases = { name }
@@ -398,7 +540,15 @@ local function applyBindings(plugin)
                 for _, alias in ipairs(aliases) do
                     file_chooser.key_events[name][#file_chooser.key_events[name] + 1] = { alias }
                 end
+                logger.info("BluetoothConfigurator filemanager aliases",
+                    "slot=" .. tostring(slot),
+                    "keycode=" .. tostring(binding.keycode),
+                    "primary=" .. tostring(name),
+                    "previous=" .. tostring(mapped_names[slot]))
                 file_chooser["on" .. name] = function()
+                    logger.info("BluetoothConfigurator filemanager event",
+                        "slot=" .. tostring(slot),
+                        "name=" .. tostring(name))
                     local active_bindings = plugin._bindings_by_context[plugin._active_context] or {}
                     local active_binding = active_bindings[slot]
                     if active_binding then executeBinding(active_binding) end
@@ -412,6 +562,9 @@ end
 for i = 1, 16 do
     local slot = i
     BluetoothTurner["on" .. SLOT .. slot] = function(self)
+        logger.info("BluetoothConfigurator plugin event",
+            "slot=" .. tostring(slot),
+            "context=" .. tostring(self._active_context))
         local bindings = self._bindings_by_context[self._active_context] or {}
         local binding = bindings[slot]
         if binding then executeBinding(binding) end
@@ -450,11 +603,22 @@ function BluetoothTurner:init()
     }
     applyBindings(self)
     if self.ui and self.ui.registerPostInitCallback then
+        logger.info("BluetoothConfigurator filemanager post-init: registering")
         self.ui:registerPostInitCallback(function()
+            logger.info("BluetoothConfigurator filemanager post-init: running",
+                "has_file_chooser=" .. tostring(getFileChooser(self) ~= nil))
             self._active_context = "filemanager"
             applyBindings(self)
         end)
     end
+    UIManager:scheduleIn(0.1, function()
+        if self.ui and not self.ui.document then
+            logger.info("BluetoothConfigurator filemanager deferred apply",
+                "has_file_chooser=" .. tostring(getFileChooser(self) ~= nil))
+            self._active_context = "filemanager"
+            applyBindings(self)
+        end
+    end)
     self.ui.menu:registerToMainMenu(self)
 end
 
@@ -624,6 +788,8 @@ function BluetoothTurner:showSettings()
     local col_act = math.floor((btn_w - 2 * sep_w) * 0.44)
     local col_del = btn_w - 2 * sep_w - col_key - col_act
     self._active_context = getCurrentContext(self)
+    self._bindings_by_context.reader = loadBindings("reader")
+    self._bindings_by_context.filemanager = loadBindings("filemanager")
     applyBindings(self)
 
     local edit_context = self._active_context or "filemanager"
