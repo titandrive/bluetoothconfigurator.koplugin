@@ -72,7 +72,15 @@ Bluetooth Configurator keeps separate binding sets for the reader and the file m
 
 If you updated from a version before v2.2.0, your existing bindings were migrated into the **Reader** set automatically, and the new **File Manager** bindings started empty.
 
-Bindings are saved in KOReader's settings folder as `settings/bluetoothconfigurator.lua`, so you can back up or copy that file to move your Bluetooth Configurator setup between devices.
+Bindings are saved in KOReader's settings folder as `settings/bluetoothconfigurator.lua`. On Android, the full path is usually:
+
+```text
+/sdcard/koreader/settings/bluetoothconfigurator.lua
+```
+
+To back up or move your Bluetooth Configurator setup, copy that file to your backup location or onto another KOReader device. It contains both the **Reader** and **File Manager** binding sets.
+
+When updating from older versions, Bluetooth Configurator automatically migrates any bindings previously stored in KOReader's global `settings.reader.lua` file into `settings/bluetoothconfigurator.lua`. After that migration, the dedicated `bluetoothconfigurator.lua` file is the one to back up.
 
 ## Updates
 
