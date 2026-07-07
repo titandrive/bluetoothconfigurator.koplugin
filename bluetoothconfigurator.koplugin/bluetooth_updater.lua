@@ -15,18 +15,32 @@ local cached_zip_url = nil
 local last_check_time = nil
 local check_in_flight = false
 
-function Updater.getInstalledVersion()
-    local ok, meta = pcall(require, "_meta")
+local function get_module_dir()
+    local source = debug.getinfo(1, "S").source or ""
+    local path = source:match("^@(.+)$")
+    if path then
+        return path:match("^(.*)/[^/]+$")
+    end
+end
+
+local function load_meta_from(path)
+    if not path then return nil end
+    local ok, meta = pcall(dofile, path)
     if ok and meta and meta.version then
+        return meta
+    end
+end
+
+function Updater.getInstalledVersion()
+    local meta = load_meta_from((get_module_dir() or "") .. "/_meta.lua")
+    if meta and meta.version then
         return tostring(meta.version)
     end
+
     local ok_main = pcall(function()
         local DataStorage = require("datastorage")
         local meta_path = DataStorage:getDataDir() .. "/plugins/" .. PLUGIN_DIR .. "/_meta.lua"
-        local ok_meta, loaded_meta = pcall(dofile, meta_path)
-        if ok_meta and loaded_meta and loaded_meta.version then
-            meta = loaded_meta
-        end
+        meta = load_meta_from(meta_path)
     end)
     if ok_main and meta and meta.version then
         return tostring(meta.version)

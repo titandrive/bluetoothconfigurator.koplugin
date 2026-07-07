@@ -2,7 +2,7 @@ local InputContainer = require("ui/widget/container/inputcontainer")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
 
-local PLUGIN_VERSION = "2.2.1"
+local PLUGIN_VERSION = "2.2.2"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 
 
