@@ -72,6 +72,8 @@ Bluetooth Configurator keeps separate binding sets for the reader and the file m
 
 If you updated from a version before v2.2.0, your existing bindings were migrated into the **Reader** set automatically, and the new **File Manager** bindings started empty.
 
+Bindings are saved in KOReader's settings folder as `settings/bluetoothconfigurator.lua`, so you can back up or copy that file to move your Bluetooth Configurator setup between devices.
+
 ## Updates
 
 Updates can be checked for and installed from within the plugin. Open a book, then go to **Plugins → Bluetooth Configurator**, tap the ⚙ icon in the top right, and select **Check for Updates**. If an update is available, the plugin shows the release notes before installing. After you choose **Update and restart**, KOReader restarts automatically.

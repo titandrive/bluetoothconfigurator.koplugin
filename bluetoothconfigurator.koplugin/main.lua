@@ -1,9 +1,12 @@
 local InputContainer = require("ui/widget/container/inputcontainer")
 local UIManager = require("ui/uimanager")
 local Device = require("device")
+local DataStorage = require("datastorage")
+local LuaSettings = require("luasettings")
 
 local PLUGIN_VERSION = "2.2.1"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
+local SETTINGS_FILE  = DataStorage:getSettingsDir() .. "/bluetoothconfigurator.lua"
 
 
 local BluetoothTurner = InputContainer:extend{
@@ -162,6 +165,7 @@ local CONTEXTS = {
     reader = {
         label = "Reader",
         setting = "bt_configurator_bindings_reader",
+        file_setting = "bindings_reader",
         legacy_setting = "bt_configurator_bindings",
         common_actions = READER_COMMON_ACTIONS,
         default_bindings = {
@@ -173,6 +177,7 @@ local CONTEXTS = {
     filemanager = {
         label = "File Manager",
         setting = "bt_configurator_bindings_filemanager",
+        file_setting = "bindings_filemanager",
         common_actions = FILE_MANAGER_COMMON_ACTIONS,
         default_bindings = {},
     },
@@ -255,6 +260,14 @@ local function actionLabel(binding, common_actions)
 end
 
 local SLOT = "BTurner_"
+local bt_settings
+
+local function getSettings()
+    if not bt_settings then
+        bt_settings = LuaSettings:open(SETTINGS_FILE)
+    end
+    return bt_settings
+end
 
 local function copyBindings(bindings)
     local copy = {}
@@ -267,18 +280,49 @@ local function copyBindings(bindings)
     return copy
 end
 
-local function loadBindings(context)
+local function saveBindingsToFile(context, bindings)
     local cfg = CONTEXTS[context] or CONTEXTS.reader
-    local saved = G_reader_settings:readSetting(cfg.setting)
-    if not saved and cfg.legacy_setting then
-        saved = G_reader_settings:readSetting(cfg.legacy_setting)
-        if saved then
-            G_reader_settings:saveSetting(cfg.setting, saved)
+    local settings = getSettings()
+    settings:saveSetting(cfg.file_setting, bindings)
+    settings:flush()
+end
+
+local function migrateSettings()
+    local settings = getSettings()
+    local migrated = false
+
+    for context, cfg in pairs(CONTEXTS) do
+        if not settings:readSetting(cfg.file_setting) then
+            local saved = G_reader_settings:readSetting(cfg.setting)
+            if not saved and cfg.legacy_setting then
+                saved = G_reader_settings:readSetting(cfg.legacy_setting)
+            end
+            if saved then
+                settings:saveSetting(cfg.file_setting, saved)
+                migrated = true
+            end
+        end
+        if context == "reader" and G_reader_settings:readSetting("bt_configurator_dpad_cleaned") then
+            settings:saveSetting("dpad_cleaned", true)
+            migrated = true
         end
     end
+
+    if migrated then
+        settings:flush()
+    end
+end
+
+local function loadBindings(context)
+    local cfg = CONTEXTS[context] or CONTEXTS.reader
+    local settings = getSettings()
+    local saved = settings:readSetting(cfg.file_setting)
+
     if saved then
         -- One-time cleanup: remove D-pad rows that were auto-added in a previous version
-        if context == "reader" and not G_reader_settings:readSetting("bt_configurator_dpad_cleaned") then
+        if context == "reader"
+                and not settings:readSetting("dpad_cleaned")
+                and not G_reader_settings:readSetting("bt_configurator_dpad_cleaned") then
             local cleaned = {}
             for _, b in ipairs(saved) do
                 if not (b.keycode and b.keycode >= 19 and b.keycode <= 22) then
@@ -289,7 +333,9 @@ local function loadBindings(context)
             for _, b in ipairs(cleaned) do
                 normalizeBinding(b)
             end
-            G_reader_settings:saveSetting(cfg.setting, cleaned)
+            settings:saveSetting(cfg.file_setting, cleaned)
+            settings:saveSetting("dpad_cleaned", true)
+            settings:flush()
             return cleaned
         end
         local changed = false
@@ -297,7 +343,8 @@ local function loadBindings(context)
             changed = normalizeBinding(b) or changed
         end
         if changed then
-            G_reader_settings:saveSetting(cfg.setting, saved)
+            settings:saveSetting(cfg.file_setting, saved)
+            settings:flush()
         end
         return saved
     end
@@ -305,12 +352,7 @@ local function loadBindings(context)
 end
 
 local function saveBindings(context, bindings)
-    local cfg = CONTEXTS[context] or CONTEXTS.reader
-    G_reader_settings:saveSetting(cfg.setting, bindings)
-    if cfg.legacy_setting then
-        G_reader_settings:saveSetting(cfg.legacy_setting, bindings)
-    end
-    G_reader_settings:flush()
+    saveBindingsToFile(context, bindings)
 end
 
 local function getCurrentContext(plugin)
@@ -420,6 +462,7 @@ function BluetoothTurner:init()
         end
     end)
     setActiveContext(self, getCurrentContext(self))
+    migrateSettings()
     self._bindings_by_context = {
         reader = loadBindings("reader"),
         filemanager = loadBindings("filemanager"),
