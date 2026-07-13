@@ -18,6 +18,10 @@ local input = {
     is_ffi = true,
     -- Set to function(code) to capture the next key down event
     capture_callback = nil,
+    -- Set to function(event) to observe input events without consuming them.
+    -- Used by the plugin's screenshot-friendly controller diagnostics.
+    debug_callback = nil,
+    supports_input_debug = true,
 }
 
 local inputQueue = {}
@@ -59,6 +63,99 @@ end
 -- Gamepad D-pad axis support.
 pcall(ffi.cdef, [[ float AMotionEvent_getAxisValue(const void* motion_event, int axis, unsigned int pointer_index); ]])
 pcall(ffi.cdef, [[ int AInputEvent_getSource(const void* event); ]])
+pcall(ffi.cdef, [[ int AInputEvent_getDeviceId(const void* event); ]])
+pcall(ffi.cdef, [[ int AKeyEvent_getScanCode(const void* key_event); ]])
+pcall(ffi.cdef, [[ int AKeyEvent_getRepeatCount(const void* key_event); ]])
+
+local function nativeNumber(function_name, event, fallback)
+    local ok, value = pcall(function()
+        return android.lib[function_name](event)
+    end)
+    if ok and value ~= nil then return tonumber(value) end
+    return fallback
+end
+
+local deviceInfoCache = {}
+
+local function getDeviceInfo(device_id)
+    if deviceInfoCache[device_id] ~= nil then
+        return deviceInfoCache[device_id] or nil
+    end
+
+    local ok, info = pcall(function()
+        return android.jni:context(android.app.activity.vm, function(jni)
+            local device = jni:callStaticObjectMethod(
+                "android/view/InputDevice", "getDevice",
+                "(I)Landroid/view/InputDevice;", ffi.new("int", device_id))
+            if device == nil then return nil end
+
+            local name = jni:callObjectMethod(device, "getName", "()Ljava/lang/String;")
+            local descriptor = jni:callObjectMethod(device, "getDescriptor", "()Ljava/lang/String;")
+            local result = {
+                id = device_id,
+                name = name ~= nil and jni:to_string(name) or "unknown",
+                descriptor = descriptor ~= nil and jni:to_string(descriptor) or "unknown",
+                vendor_id = tonumber(jni:callIntMethod(device, "getVendorId", "()I")),
+                product_id = tonumber(jni:callIntMethod(device, "getProductId", "()I")),
+                sources = tonumber(jni:callIntMethod(device, "getSources", "()I")),
+                keyboard_type = tonumber(jni:callIntMethod(device, "getKeyboardType", "()I")),
+                is_virtual = jni:callBooleanMethod(device, "isVirtual", "()Z"),
+            }
+            if name ~= nil then jni.env[0].DeleteLocalRef(jni.env, name) end
+            if descriptor ~= nil then jni.env[0].DeleteLocalRef(jni.env, descriptor) end
+            jni.env[0].DeleteLocalRef(jni.env, device)
+            return result
+        end)
+    end)
+
+    -- Cache failures too: identity is supplemental and should never interfere
+    -- with capturing the controller event itself.
+    deviceInfoCache[device_id] = ok and info or false
+    return ok and info or nil
+end
+
+local function emitDebug(event)
+    if input.debug_callback then
+        -- Diagnostics must never be able to interrupt normal input handling.
+        pcall(input.debug_callback, event)
+        -- The controller event itself is consumed below so it cannot operate
+        -- the diagnostic UI. Leave a harmless sync event in KOReader's input
+        -- queue to wake its UI loop and run the scheduled report refresh now,
+        -- instead of waiting for the normal long poll timeout.
+        genEmuEvent(C.EV_SYN, C.SYN_REPORT, 0)
+    end
+end
+
+local function debugMotionEvent(motion_event)
+    if not input.debug_callback then return end
+
+    local source = nativeNumber("AInputEvent_getSource", motion_event, 0)
+    -- Touchscreen input belongs to the diagnostic UI itself, not the
+    -- controller report, and must remain usable for Copy/Back/Close.
+    if source == 0x00001002 then return end
+
+    local axes = {}
+    -- Android currently defines standard controller axes below 48. Reporting
+    -- every active one lets us discover controllers that use an unexpected
+    -- axis instead of only logging the mappings we already support.
+    for axis = 0, 47 do
+        local ok, value = pcall(android.lib.AMotionEvent_getAxisValue, motion_event, axis, 0)
+        value = ok and tonumber(value) or 0
+        if value and math.abs(value) > 0.001 then
+            axes[#axes + 1] = { axis = axis, value = value }
+        end
+    end
+
+    local device_id = nativeNumber("AInputEvent_getDeviceId", motion_event, -1)
+    emitDebug{
+        kind = "motion",
+        action = nativeNumber("AMotionEvent_getAction", motion_event, -1),
+        source = source,
+        device_id = device_id,
+        device_info = getDeviceInfo(device_id),
+        axes = axes,
+    }
+end
 
 local hat_x, hat_y = 0, 0
 local trig_l, trig_r = false, false
@@ -206,6 +303,11 @@ end
 --       AMOTION_EVENT_ACTION_DOWN & AMOTION_EVENT_ACTION_UP, so, use the source, Luke! c.f., TouchInputMapper::dispatchMotion @
 -- https://android.googlesource.com/platform//frameworks/native/+/master/services/inputflinger/reader/mapper/TouchInputMapper.cpp
 local function motionEventHandler(motion_event)
+    local source = nativeNumber("AInputEvent_getSource", motion_event, 0)
+    debugMotionEvent(motion_event)
+    -- Controller motion is recorded above and kept out of KOReader's normal
+    -- UI. Touchscreen motion still has to reach the diagnostic controls.
+    if input.debug_callback and source ~= 0x00001002 then return end
     pcall(handleHatAxes, motion_event)
     if android.isTouchscreenIgnored() then
         return
@@ -267,6 +369,20 @@ end
 local function keyEventHandler(key_event)
     local code = android.lib.AKeyEvent_getKeyCode(key_event)
     local action = android.lib.AKeyEvent_getAction(key_event)
+    local device_id = nativeNumber("AInputEvent_getDeviceId", key_event, -1)
+    emitDebug{
+        kind = "key",
+        action = tonumber(action),
+        keycode = tonumber(code),
+        scancode = nativeNumber("AKeyEvent_getScanCode", key_event, -1),
+        source = nativeNumber("AInputEvent_getSource", key_event, 0),
+        device_id = device_id,
+        device_info = getDeviceInfo(device_id),
+        repeat_count = nativeNumber("AKeyEvent_getRepeatCount", key_event, 0),
+    }
+    -- Keep diagnostic key presses out of KOReader's normal event queue. They
+    -- are still marked handled for Android by the caller.
+    if input.debug_callback then return 1 end
     if input.capture_callback and action == C.AKEY_EVENT_ACTION_DOWN then
         local cb = input.capture_callback
         input.capture_callback = nil

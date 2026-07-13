@@ -88,6 +88,39 @@ Updates can be checked for and installed from within the plugin. Open a book, th
 
 The settings panel also includes **Check for updates on wake**, which controls whether the plugin checks for updates when KOReader wakes or resumes.
 
+## Controller Input Diagnostics
+
+When a controller button is not detected:
+
+1. Open **Bluetooth Configurator**.
+2. Tap the ⚙ settings icon.
+3. Tap the small bug/debug button beside **Back**.
+4. Press every controller button that needs to be identified. The full-screen report keeps listening after each event, so several presses and buttons can be recorded in one session.
+5. Tap **Copy** and paste the report into a support message, or take a screenshot of the report.
+
+The **Controller / Device** section appears once at the top after the first event. It includes Android's device name and ID, descriptor, vendor and product IDs, supported input sources, keyboard type, and virtual-device status. The **Button / Axis Events** section below it records press and release actions, Android keycodes, raw scan codes, input sources, repeat counts, and all active standard controller axes.
+
+Use **Clear** to discard the current device information and event samples while continuing to listen. Use **Back** to stop listening and return to the plugin settings page, or **Close** (including the title-bar close button) to stop listening and exit the report.
+
+If the report remains on **Waiting for controller input**, Android did not deliver that input to KOReader. This helps distinguish an Android connection or controller-mode problem from an unsupported key or axis mapping in the plugin.
+
+## If Your Controller Is Not Working
+
+1. Confirm the controller is paired in Android's Bluetooth settings and works in another Android app. If it supports several modes, reconnect it in keyboard, media-control, or gamepad mode and try each mode.
+2. Restart KOReader after connecting the controller, then try creating a binding again.
+3. Open **Bluetooth Configurator → ⚙ → bug/debug button**.
+4. Press every affected button several times, including both short presses and holds. If the controller has directional controls, triggers, or a joystick, exercise those too.
+5. Tap **Copy**. The copied report includes the controller identity and all captured key and axis events.
+6. [Open a GitHub issue](https://github.com/titandrive/bluetoothconfigurator.koplugin/issues/new) and paste the complete report. Also include:
+   - Controller brand and model
+   - Android reader/phone model and Android version
+   - KOReader version and Bluetooth Configurator version
+   - The controller connection mode, if it has more than one
+   - What each physical button should do
+   - Whether the diagnostic screen captured nothing, captured an event that cannot be bound, or captured a binding that does not run
+
+Do not edit keycodes, scan codes, descriptors, or other values in the report. Those exact values are what make it possible to add support for an unfamiliar controller. The report does not include Bluetooth addresses or personal book data.
+
 ## Validated Devices
 Although this plugin should work with any Android based E-Reader and bluetooth controller, it has been validated with the following devices:
 

@@ -3,8 +3,9 @@ local UIManager = require("ui/uimanager")
 local Device = require("device")
 local DataStorage = require("datastorage")
 local LuaSettings = require("luasettings")
+local logger = require("logger")
 
-local PLUGIN_VERSION = "2.2.2"
+local PLUGIN_VERSION = "2.2.3"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 local SETTINGS_FILE  = DataStorage:getSettingsDir() .. "/bluetoothconfigurator.lua"
 
@@ -544,6 +545,187 @@ function BluetoothTurner:onBluetoothConfiguratorOpen()
     return true
 end
 
+function BluetoothTurner:showInputDiagnostics()
+    local InfoMessage = require("ui/widget/infomessage")
+    local Notification = require("ui/widget/notification")
+    local TextViewer = require("ui/widget/textviewer")
+    local input = Device.input.input
+
+    if not input or not input.supports_input_debug then
+        UIManager:show(InfoMessage:new{
+            text = "Input diagnostics are unavailable because the Bluetooth Configurator input backend did not load. Restart KOReader and try again.",
+        })
+        return
+    end
+
+    local events = {}
+    local devices = {}
+    local last_signature
+    local viewer
+    local active = true
+    local refresh_scheduled = false
+
+    local function formatSource(source)
+        return string.format("0x%08X", source or 0)
+    end
+
+    local axis_names = {
+        [0] = "X", [1] = "Y", [2] = "PRESSURE", [3] = "SIZE",
+        [4] = "TOUCH_MAJOR", [5] = "TOUCH_MINOR", [6] = "TOOL_MAJOR",
+        [7] = "TOOL_MINOR", [8] = "ORIENTATION", [9] = "VSCROLL",
+        [10] = "HSCROLL", [11] = "Z", [12] = "RX", [13] = "RY",
+        [14] = "RZ", [15] = "HAT_X", [16] = "HAT_Y",
+        [17] = "LTRIGGER", [18] = "RTRIGGER", [19] = "THROTTLE",
+        [20] = "RUDDER", [21] = "WHEEL", [22] = "GAS", [23] = "BRAKE",
+        [24] = "DISTANCE", [25] = "TILT", [26] = "SCROLL",
+        [27] = "RELATIVE_X", [28] = "RELATIVE_Y",
+    }
+    for axis = 32, 47 do
+        axis_names[axis] = "GENERIC_" .. (axis - 31)
+    end
+
+    local function buildReport()
+        local report = "Plugin version: " .. PLUGIN_VERSION
+            .. "\nStatus: LISTENING (" .. #events .. " event samples)\n\n"
+            .. "CONTROLLER / DEVICE\n"
+        local device_lines = {}
+        for _, info in pairs(devices) do
+            device_lines[#device_lines + 1] = string.format(
+                "Device %d: %s\nVendor/Product: %d (0x%04X) / %d (0x%04X)\n"
+                    .. "Descriptor: %s\nSources: %s  Keyboard type: %d  Virtual: %s",
+                info.id or -1,
+                info.name or "unknown",
+                info.vendor_id or 0, info.vendor_id or 0,
+                info.product_id or 0, info.product_id or 0,
+                info.descriptor or "unknown",
+                formatSource(info.sources),
+                info.keyboard_type or 0,
+                info.is_virtual and "yes" or "no")
+        end
+        if #device_lines == 0 then
+            report = report .. "Waiting for the first controller event...\n"
+        else
+            table.sort(device_lines)
+            report = report .. table.concat(device_lines, "\n\n") .. "\n"
+        end
+        report = report .. "\nBUTTON / AXIS EVENTS\n"
+        if #events == 0 then
+            return report .. "Waiting for controller input..."
+        end
+        return report .. table.concat(events, "\n\n")
+    end
+
+    local function stopDiagnostics(return_to_settings)
+        if not active then return end
+        active = false
+        input.debug_callback = nil
+        if viewer then UIManager:close(viewer) end
+        if return_to_settings then self:showInfoPanel() end
+    end
+
+    local function scheduleRefresh()
+        if refresh_scheduled or not active then return end
+        refresh_scheduled = true
+        UIManager:scheduleIn(0, function()
+            refresh_scheduled = false
+            if active and viewer then
+                viewer.text = buildReport()
+                viewer:reinit()
+                UIManager:setDirty(viewer, "full")
+            end
+        end)
+    end
+
+    local action_names = { [0] = "DOWN", [1] = "UP", [2] = "MOVE", [3] = "CANCEL" }
+    input.debug_callback = function(event)
+        if event.device_info then
+            devices[event.device_info.id or event.device_id or -1] = event.device_info
+        end
+        local line
+        if event.kind == "key" then
+            line = string.format(
+                "KEY %-4s  keycode=%d  scan=%d\nsource=%s  device=%d  repeat=%d",
+                action_names[event.action] or tostring(event.action),
+                event.keycode or -1,
+                event.scancode or -1,
+                formatSource(event.source),
+                event.device_id or -1,
+                event.repeat_count or 0)
+        elseif event.kind == "motion" then
+            local axes = {}
+            for _, axis in ipairs(event.axes or {}) do
+                axes[#axes + 1] = string.format("%d(%s)=%.3f",
+                    axis.axis, axis_names[axis.axis] or "UNKNOWN", axis.value)
+            end
+            line = string.format(
+                "MOTION %-6s  source=%s  device=%d\naxes: %s",
+                action_names[event.action] or tostring(event.action),
+                formatSource(event.source),
+                event.device_id or -1,
+                #axes > 0 and table.concat(axes, ", ") or "none")
+        end
+
+        -- Motion devices can send many identical samples. One copy contains
+        -- everything needed for a support screenshot.
+        if line and line ~= last_signature then
+            last_signature = line
+            events[#events + 1] = line
+            if #events > 100 then table.remove(events, 1) end
+            logger.info("BluetoothConfigurator diagnostic event:", line:gsub("\n", " | "))
+            scheduleRefresh()
+        end
+    end
+
+    viewer = TextViewer:new{
+        title = "Controller Input Report",
+        text = buildReport(),
+        text_type = "code",
+        show_menu = false,
+        add_default_buttons = false,
+        buttons_table = {
+            {
+                {
+                    text = "Copy",
+                    callback = function()
+                        Device.input.setClipboardText(buildReport())
+                        UIManager:show(Notification:new{
+                            text = "Report copied to clipboard.",
+                        })
+                    end,
+                },
+                {
+                    text = "Clear",
+                    callback = function()
+                        events = {}
+                        devices = {}
+                        last_signature = nil
+                        scheduleRefresh()
+                    end,
+                },
+            },
+            {
+                {
+                    text = "Back",
+                    callback = function() stopDiagnostics(true) end,
+                },
+                {
+                    text = "Close",
+                    callback = function() stopDiagnostics(false) end,
+                },
+            },
+        },
+    }
+    local textViewerOnClose = viewer.onClose
+    viewer.onClose = function(self_viewer)
+        if active then
+            active = false
+            input.debug_callback = nil
+        end
+        return textViewerOnClose(self_viewer)
+    end
+    UIManager:show(viewer)
+end
+
 function BluetoothTurner:showInfoPanel()
     local TitleBar = require("ui/widget/titlebar")
     local ButtonTable = require("ui/widget/buttontable")
@@ -561,18 +743,21 @@ function BluetoothTurner:showInfoPanel()
     local screen_h = Device.screen:getHeight()
     local sw = screen_w - 2 * Size.border.window
     local sh = screen_h - 2 * Size.border.window
+    local panel_w = sw - 2 * Size.padding.button
+    local debug_button_w = math.floor(panel_w * 0.18)
+    local back_button_w = panel_w - Size.line.medium - debug_button_w
 
     local panel
 
     local title_bar = TitleBar:new{
-        width = sw - 2 * Size.padding.button,
+        width = panel_w,
         align = "center",
         with_bottom_line = true,
         title = "Bluetooth Configurator",
     }
 
     local button_table = ButtonTable:new{
-        width = sw - 2 * Size.padding.button,
+        width = panel_w,
         buttons = {
             {{ text = "Version: " .. PLUGIN_VERSION, callback = function() end }},
             {{ text = "Check for Updates", callback = function() self:checkForUpdates() end }},
@@ -595,7 +780,25 @@ function BluetoothTurner:showInfoPanel()
                     UIManager:show(InfoMessage:new{ text = url })
                 end
             end }},
-            {{ text = "Back",              callback = function() UIManager:close(panel); self:showSettings() end }},
+            {
+                {
+                    -- Font Awesome's bug/debug symbol.
+                    text = "\xEF\x86\x88",
+                    width = debug_button_w,
+                    callback = function()
+                        UIManager:close(panel)
+                        self:showInputDiagnostics()
+                    end,
+                },
+                {
+                    text = "Back",
+                    width = back_button_w,
+                    callback = function()
+                        UIManager:close(panel)
+                        self:showSettings()
+                    end,
+                },
+            },
         },
         zero_sep = false,
     }
@@ -999,7 +1202,7 @@ function BluetoothTurner:showSettings()
         msg = InfoMessage:new{
             text = "Press a button on your Bluetooth device...",
             timeout = 10,
-            close_callback = function()
+            dismiss_callback = function()
                 if Device.input.input then
                     Device.input.input.capture_callback = nil
                 end
