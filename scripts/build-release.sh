@@ -13,14 +13,19 @@ fi
 
 rm -f -- "$output_path"
 (
-    cd "$plugin_dir"
-    zip -q "$output_path" _meta.lua bluetooth_updater.lua input_android_patched.lua main.lua
+    cd "$repo_dir"
+    zip -q "$output_path" \
+        bluetoothconfigurator.koplugin/_meta.lua \
+        bluetoothconfigurator.koplugin/bluetooth_updater.lua \
+        bluetoothconfigurator.koplugin/input_android_patched.lua \
+        bluetoothconfigurator.koplugin/main.lua
 )
 
-# v2.2.3 and older updaters extract directly into the installed plugin
-# directory. Keep files at the ZIP root so those versions can self-repair.
-if unzip -Z1 "$output_path" | grep -q '/'; then
-    echo "Invalid release archive: plugin files must be at the ZIP root" >&2
+# KOReader's unpackArchive(..., true) strips exactly one leading directory.
+# Older plugin updaters depend on that behavior, so every file must have this
+# one wrapper and no second nested directory.
+if unzip -Z1 "$output_path" | grep -Ev '^bluetoothconfigurator\.koplugin/[^/]+$' | grep -q .; then
+    echo "Invalid release archive: expected exactly one plugin wrapper directory" >&2
     exit 1
 fi
 
