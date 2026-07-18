@@ -369,20 +369,22 @@ end
 local function keyEventHandler(key_event)
     local code = android.lib.AKeyEvent_getKeyCode(key_event)
     local action = android.lib.AKeyEvent_getAction(key_event)
-    local device_id = nativeNumber("AInputEvent_getDeviceId", key_event, -1)
-    emitDebug{
-        kind = "key",
-        action = tonumber(action),
-        keycode = tonumber(code),
-        scancode = nativeNumber("AKeyEvent_getScanCode", key_event, -1),
-        source = nativeNumber("AInputEvent_getSource", key_event, 0),
-        device_id = device_id,
-        device_info = getDeviceInfo(device_id),
-        repeat_count = nativeNumber("AKeyEvent_getRepeatCount", key_event, 0),
-    }
-    -- Keep diagnostic key presses out of KOReader's normal event queue. They
-    -- are still marked handled for Android by the caller.
-    if input.debug_callback then return 1 end
+    if input.debug_callback then
+        local device_id = nativeNumber("AInputEvent_getDeviceId", key_event, -1)
+        emitDebug{
+            kind = "key",
+            action = tonumber(action),
+            keycode = tonumber(code),
+            scancode = nativeNumber("AKeyEvent_getScanCode", key_event, -1),
+            source = nativeNumber("AInputEvent_getSource", key_event, 0),
+            device_id = device_id,
+            device_info = getDeviceInfo(device_id),
+            repeat_count = nativeNumber("AKeyEvent_getRepeatCount", key_event, 0),
+        }
+        -- Keep diagnostic key presses out of KOReader's normal event queue.
+        -- They are still marked handled for Android by the caller.
+        return 1
+    end
     if input.capture_callback and action == C.AKEY_EVENT_ACTION_DOWN then
         local cb = input.capture_callback
         input.capture_callback = nil

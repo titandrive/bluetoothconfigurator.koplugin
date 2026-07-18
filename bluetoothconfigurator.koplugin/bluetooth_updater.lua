@@ -31,6 +31,50 @@ local function load_meta_from(path)
     end
 end
 
+local function remove_tree(lfs, path)
+    local mode = lfs.attributes(path, "mode")
+    if mode == "directory" then
+        for name in lfs.dir(path) do
+            if name ~= "." and name ~= ".." then
+                remove_tree(lfs, path .. "/" .. name)
+            end
+        end
+        return lfs.rmdir(path)
+    elseif mode then
+        return os.remove(path)
+    end
+    return true
+end
+
+local function find_plugin_dir(lfs, path, expected_version, depth)
+    if depth < 0 or lfs.attributes(path, "mode") ~= "directory" then return nil end
+
+    local meta = load_meta_from(path .. "/_meta.lua")
+    if meta and tostring(meta.version) == tostring(expected_version) then
+        local required_files = {
+            "_meta.lua", "main.lua", "bluetooth_updater.lua", "input_android_patched.lua",
+        }
+        local complete = true
+        for _, name in ipairs(required_files) do
+            if lfs.attributes(path .. "/" .. name, "mode") ~= "file" then
+                complete = false
+                break
+            end
+        end
+        if complete then return path end
+    end
+
+    for name in lfs.dir(path) do
+        if name ~= "." and name ~= ".." then
+            local child = path .. "/" .. name
+            if lfs.attributes(child, "mode") == "directory" then
+                local found = find_plugin_dir(lfs, child, expected_version, depth - 1)
+                if found then return found end
+            end
+        end
+    end
+end
+
 function Updater.getInstalledVersion()
     local meta = load_meta_from((get_module_dir() or "") .. "/_meta.lua")
     if meta and meta.version then
@@ -331,17 +375,81 @@ function Updater.install(zip_url, old_version, new_version, on_success)
             return
         end
 
-        local plugin_path = DataStorage:getDataDir() .. "/plugins/" .. PLUGIN_DIR
-        local ok, err = Device:unpackArchive(zip_path, plugin_path, true)
+        -- Release archives contain the plugin directory itself. Extracting one
+        -- directly into plugin_path creates plugin_path/plugin_path and leaves
+        -- the installed version untouched. Stage and validate the archive
+        -- before replacing anything instead.
+        local stage_path = cache_dir .. "/install-stage"
+        local backup_path = cache_dir .. "/install-backup"
+        remove_tree(lfs, stage_path)
+        remove_tree(lfs, backup_path)
+        local made_stage, stage_err = lfs.mkdir(stage_path)
+        if not made_stage then
+            pcall(os.remove, zip_path)
+            UIManager:show(InfoMessage:new{
+                text = "Installation failed: could not create staging directory: " .. tostring(stage_err),
+                timeout = 5,
+            })
+            return
+        end
+
+        local ok, err = Device:unpackArchive(zip_path, stage_path, true)
         pcall(os.remove, zip_path)
 
         if not ok then
+            remove_tree(lfs, stage_path)
             UIManager:show(InfoMessage:new{
                 text = "Installation failed: " .. tostring(err),
                 timeout = 5,
             })
             return
         end
+
+        local staged_plugin = find_plugin_dir(lfs, stage_path, new_version, 3)
+        if not staged_plugin then
+            remove_tree(lfs, stage_path)
+            UIManager:show(InfoMessage:new{
+                text = "Installation failed: the downloaded archive is not a valid v"
+                    .. tostring(new_version) .. " plugin.",
+                timeout = 5,
+            })
+            return
+        end
+
+        local plugin_path = DataStorage:getDataDir() .. "/plugins/" .. PLUGIN_DIR
+        local had_previous = lfs.attributes(plugin_path, "mode") == "directory"
+        if had_previous then
+            local backed_up, backup_err = os.rename(plugin_path, backup_path)
+            if not backed_up then
+                remove_tree(lfs, stage_path)
+                UIManager:show(InfoMessage:new{
+                    text = "Installation failed: could not back up the current plugin: "
+                        .. tostring(backup_err),
+                    timeout = 5,
+                })
+                return
+            end
+        end
+
+        local installed, install_err = os.rename(staged_plugin, plugin_path)
+        local installed_meta = installed and load_meta_from(plugin_path .. "/_meta.lua") or nil
+        if not installed_meta or tostring(installed_meta.version) ~= tostring(new_version) then
+            if installed then remove_tree(lfs, plugin_path) end
+            local restored = not had_previous
+            if had_previous then restored = os.rename(backup_path, plugin_path) and true or false end
+            remove_tree(lfs, stage_path)
+            UIManager:show(InfoMessage:new{
+                text = (restored
+                        and "Installation failed; the previous version was restored: "
+                        or "Installation failed and the previous version could not be restored: ")
+                    .. tostring(install_err or "version verification failed"),
+                timeout = 5,
+            })
+            return
+        end
+
+        remove_tree(lfs, stage_path)
+        remove_tree(lfs, backup_path)
 
         if on_success then pcall(on_success) end
 

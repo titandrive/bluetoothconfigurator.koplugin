@@ -5,7 +5,7 @@ local DataStorage = require("datastorage")
 local LuaSettings = require("luasettings")
 local logger = require("logger")
 
-local PLUGIN_VERSION = "2.2.3"
+local PLUGIN_VERSION = "2.2.4"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 local SETTINGS_FILE  = DataStorage:getSettingsDir() .. "/bluetoothconfigurator.lua"
 
