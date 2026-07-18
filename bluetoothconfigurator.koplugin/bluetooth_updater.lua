@@ -75,6 +75,39 @@ local function find_plugin_dir(lfs, path, expected_version, depth)
     end
 end
 
+-- Device:unpackArchive was removed from KOReader in mid-2026. Use the
+-- underlying archiver directly so updating does not depend on that wrapper.
+local function unpack_archive(zip_path, dest)
+    local ok_require, Archiver = pcall(require, "ffi/archiver")
+    if not (ok_require and Archiver and Archiver.Reader) then
+        return false, "archive extractor unavailable"
+    end
+
+    local archive = Archiver.Reader:new()
+    if not archive:open(zip_path) then
+        local err = archive.err
+        archive:close()
+        return false, err or "could not open archive"
+    end
+
+    local extract_err
+    for entry in archive:iterate() do
+        local path = entry.path
+        if not path or path == "" or path:sub(1, 1) == "/"
+                or path:match("^%.%./") or path:match("/%.%./") then
+            extract_err = "unsafe archive path"
+            break
+        end
+        if not archive:extractToPath(path, dest .. "/" .. path) then
+            extract_err = archive.err or "extract failed"
+            break
+        end
+    end
+    archive:close()
+    if extract_err then return false, extract_err end
+    return true
+end
+
 function Updater.getInstalledVersion()
     local meta = load_meta_from((get_module_dir() or "") .. "/_meta.lua")
     if meta and meta.version then
@@ -393,7 +426,7 @@ function Updater.install(zip_url, old_version, new_version, on_success)
             return
         end
 
-        local ok, err = Device:unpackArchive(zip_path, stage_path, true)
+        local ok, err = unpack_archive(zip_path, stage_path)
         pcall(os.remove, zip_path)
 
         if not ok then
