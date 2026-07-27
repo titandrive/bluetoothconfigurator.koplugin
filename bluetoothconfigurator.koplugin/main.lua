@@ -5,7 +5,7 @@ local DataStorage = require("datastorage")
 local LuaSettings = require("luasettings")
 local logger = require("logger")
 
-local PLUGIN_VERSION = "2.2.3"
+local PLUGIN_VERSION = "2.2.4"
 local GITHUB_REPO    = "titandrive/bluetoothconfigurator.koplugin"
 local SETTINGS_FILE  = DataStorage:getSettingsDir() .. "/bluetoothconfigurator.lua"
 
@@ -910,14 +910,10 @@ function BluetoothTurner:showSettings()
         dispatcher:addSubMenu(picker_state, item_table, picker_binding, "actions")
 
         -- Only one action fires per button press, so drop categories that don't
-        -- make sense for the current context and the multi-action/QuickMenu
+        -- make sense in the File Manager and the multi-action/QuickMenu
         -- management rows dispatcher appends after the categories.
         local function isExcludedCategory(text)
             if text == nil then return false end
-            if text:find("Reflowable documents", 1, true)
-                    or text:find("Fixed layout documents", 1, true) then
-                return true
-            end
             if edit_context ~= "filemanager" then return false end
 
             local lower_text = text:lower()
